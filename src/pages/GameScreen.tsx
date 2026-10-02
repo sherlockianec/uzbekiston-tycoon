@@ -17,6 +17,7 @@ import NoticeToasts from '../components/NoticeToasts';
 import { LANGUAGE_OPTIONS } from '../components/LanguageSwitcher';
 import EndGameModal from '../components/EndGameModal';
 import { isOwnableId } from '../game/data/properties';
+import { BOARD } from '../game/data/board';
 import { t } from '../i18n/strings';
 import { useSound } from '../hooks/useSound';
 import type { Language } from '../game/types';
@@ -27,7 +28,7 @@ const ICON_CLOSE = '\u2716';
 type OverlayModal = 'none' | 'trade' | 'build' | 'bank' | 'network' | 'bribe' | 'settings';
 
 export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void; onPlayAgain: () => void }) {
-  const { state, quitToMenu } = useActiveGame();
+  const { state, quitToMenu, busy } = useActiveGame();
   const lang = state.settings.language;
   const currentPlayer = state.players[state.currentPlayerIndex];
 
@@ -36,13 +37,34 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
 
   const actorId = nextActorId(state) ?? currentPlayer.id;
   const actor = state.players.find((p) => p.id === actorId) ?? currentPlayer;
-  const isLocalHumanActing = !actor.isAI;
+  // While a pawn is still walking to its tile nothing can be decided yet.
+  const isLocalHumanActing = !actor.isAI && !busy;
 
   const humanMustDecide = state.phase === 'AWAITING_PURCHASE_DECISION' && isLocalHumanActing;
   const humanMustAckCard = state.phase === 'AWAITING_CARD_ACK' && isLocalHumanActing;
   const inTradeResponse = state.phase === 'AWAITING_TRADE_RESPONSE' && state.trade?.toId === actorId;
   const humanMustLiquidate = state.phase === 'AWAITING_LIQUIDATION' && isLocalHumanActing;
   const gameOver = state.phase === 'GAME_OVER';
+
+  // Debt does not force bankruptcy: the dialog can be set aside to use the
+  // bank, trading and so on, and is re-opened from the action bar.
+  const [debtOpen, setDebtOpen] = useState(true);
+  const prevPhaseRef = useRef(state.phase);
+  useEffect(() => {
+    if (state.phase === 'AWAITING_LIQUIDATION' && prevPhaseRef.current !== 'AWAITING_LIQUIDATION') setDebtOpen(true);
+    prevPhaseRef.current = state.phase;
+  }, [state.phase]);
+
+  // Standing on the Senior Official cell: offer the (optional) bribe once per landing.
+  const bribePromptedRef = useRef<string | null>(null);
+  const onBribeCell = BOARD[actor.position]?.kind === 'corner-bribe';
+  const landingKey = `${state.turnNumber}:${actor.position}:${state.dice ? state.dice.join('-') : ''}`;
+  useEffect(() => {
+    if (!isLocalHumanActing || state.phase !== 'AWAITING_ROLL' || !state.hasRolledThisTurn) return;
+    if (!onBribeCell || state.bribeGambleUsedThisTurn || bribePromptedRef.current === landingKey) return;
+    bribePromptedRef.current = landingKey;
+    setOverlay('bribe');
+  }, [isLocalHumanActing, state.phase, state.hasRolledThisTurn, state.bribeGambleUsedThisTurn, onBribeCell, landingKey]);
 
   // Auto-close the trade overlay once a proposed trade actually resolves.
   const sawTradeRef = useRef(false);
@@ -125,6 +147,7 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
           onOpenBank={() => setOverlay('bank')}
           onOpenNetworkTravel={() => setOverlay('network')}
           onOpenBribe={() => setOverlay('bribe')}
+          onOpenDebt={() => setDebtOpen(true)}
         />
       </div>
 
@@ -142,7 +165,9 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
       {overlay === 'bribe' && isLocalHumanActing && state.phase !== 'AWAITING_LIQUIDATION' && (
         <BribeModal actorId={actorId} onClose={() => setOverlay('none')} />
       )}
-      {humanMustLiquidate && <LiquidationModal actorId={actorId} />}
+      {humanMustLiquidate && debtOpen && overlay === 'none' && (
+        <LiquidationModal actorId={actorId} onSetAside={() => setDebtOpen(false)} />
+      )}
       <NoticeToasts />
       {gameOver && <EndGameModal onPlayAgain={handlePlayAgain} onReturnToMenu={handleQuit} />}
       {overlay === 'settings' && <SettingsPopover onClose={() => setOverlay('none')} />}

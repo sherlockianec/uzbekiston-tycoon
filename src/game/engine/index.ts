@@ -1,5 +1,5 @@
 import type { GameCommand, GameState, TradeOffer } from '../types';
-import { isPropertyId, isInfrastructureId } from '../data/properties';
+import { isPropertyId, isInfrastructureId, isOwnableId } from '../data/properties';
 import { BOARD, spaceById } from '../data/board';
 import { DETENTION_FINE_SCHEDULE, MAX_DETENTION_TURNS } from '../data/economy';
 import { formatSom } from '../../utils/currency';
@@ -19,7 +19,7 @@ import {
   unmortgageProperty,
 } from './properties';
 import { cancelTrade, proposeTrade, respondTrade } from './negotiation';
-import { declareBankruptcy, liquidateMortgage, liquidateSellDevelopment } from './liquidation';
+import { declareBankruptcy, liquidateMortgage, liquidateSellDevelopment, settleDebtIfAffordable } from './liquidation';
 import { canRepayLoanEarly, canTakeLoan, repayLoanEarly, takeLoan } from './bank';
 
 export { createNewGame, SAVE_VERSION } from './newGame';
@@ -130,7 +130,7 @@ export function applyCommand(
         let next: GameState = { ...state, dice: [d1, d2], hasRolledThisTurn: true, doublesStreak: 0 };
         next = appendLog(next, `${player.name} rolled doubles a third time in a row and was sent to Tax Inspection.`);
         next = sendToDetention(next, player.id);
-        return { ...next, phase: 'AWAITING_ROLL' };
+        return next.phase === 'AWAITING_LIQUIDATION' ? next : { ...next, phase: 'AWAITING_ROLL' };
       }
       let next: GameState = { ...state, dice: [d1, d2], hasRolledThisTurn: true, doublesStreak: newStreak };
       next = appendLog(next, `${player.name} rolled ${d1}-${d2}${isDoubles ? ' — doubles, roll again after this turn resolves' : ''}.`);
@@ -165,9 +165,19 @@ export function applyCommand(
     }
 
     case 'BUY_PROPERTY': {
-      if (!isCurrent || state.phase !== 'AWAITING_PURCHASE_DECISION' || !state.currentSpaceId) return noop(state);
-      if (!canBuy(state, acting.id, state.currentSpaceId)) return noop(state);
-      const bought = buyProperty(state, acting.id, state.currentSpaceId);
+      if (!isCurrent) return noop(state);
+      // Normally the purchase prompt right after landing. But declining (or being
+      // unable to afford it) is not final for this turn: while you are still
+      // standing on an unowned space you may raise money (loan, sell, trade) and
+      // then buy it from the action bar.
+      let spaceId: string | null = null;
+      if (state.phase === 'AWAITING_PURCHASE_DECISION') spaceId = state.currentSpaceId;
+      else if (state.phase === 'AWAITING_ROLL' && state.hasRolledThisTurn && !acting.inDetention) {
+        const here = BOARD[acting.position];
+        if (isOwnableId(here.id)) spaceId = here.id;
+      }
+      if (!spaceId || !canBuy(state, acting.id, spaceId)) return noop(state);
+      const bought = buyProperty(state, acting.id, spaceId);
       return { ...bought, phase: 'AWAITING_ROLL' };
     }
 
@@ -197,12 +207,15 @@ export function applyCommand(
     }
 
     case 'SELL_DEVELOPMENT': {
+      // While in debt this doubles as a way to raise cash (and auto-pays the debt once covered).
+      if (isCurrent && state.phase === 'AWAITING_LIQUIDATION') return liquidateSellDevelopment(state, acting.id, command.spaceId, rng);
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (!canSellDevelopment(state, acting.id, command.spaceId)) return noop(state);
       return sellDevelopment(state, acting.id, command.spaceId);
     }
 
     case 'MORTGAGE': {
+      if (isCurrent && state.phase === 'AWAITING_LIQUIDATION') return liquidateMortgage(state, acting.id, command.spaceId, rng);
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (!canMortgage(state, acting.id, command.spaceId)) return noop(state);
       return mortgageProperty(state, acting.id, command.spaceId);
@@ -215,9 +228,17 @@ export function applyCommand(
     }
 
     case 'TAKE_LOAN': {
-      if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
+      const inDebt = state.phase === 'AWAITING_LIQUIDATION';
+      if (!isCurrent || (state.phase !== 'AWAITING_ROLL' && !inDebt)) return noop(state);
       if (!canTakeLoan(state, acting.id, command.amount)) return noop(state);
-      return takeLoan(state, acting.id, command.amount);
+      const loaned = takeLoan(state, acting.id, command.amount);
+      return inDebt ? settleDebtIfAffordable(loaned, acting.id, rng) : loaned;
+    }
+
+    case 'PAY_DEBT': {
+      if (!isCurrent || state.phase !== 'AWAITING_LIQUIDATION' || !state.pendingDebt) return noop(state);
+      if (acting.cash < state.pendingDebt.amount) return noop(state);
+      return settleDebtIfAffordable(state, acting.id, rng);
     }
 
     case 'REPAY_LOAN_EARLY': {
@@ -232,13 +253,16 @@ export function applyCommand(
       if (here.kind !== 'infrastructure') return noop(state);
       if (!isInfrastructureId(command.targetSpaceId) || command.targetSpaceId === here.id) return noop(state);
       const target = spaceById(command.targetSpaceId);
-      let next = moveToTarget(state, acting.id, target.index, false);
+      // Always forward around the board, collecting the salary when crossing START.
+      let next = moveToTarget(state, acting.id, target.index, true, 'travel');
       next = { ...next, networkTravelUsed: true };
       return resolveLandingUnlessLiquidating(next, acting.id, rng);
     }
 
     case 'ATTEMPT_BRIBE': {
       if (!isCurrent || state.phase !== 'AWAITING_ROLL' || state.bribeGambleUsedThisTurn) return noop(state);
+      // Only possible while standing on the Senior Official cell.
+      if (BOARD[acting.position].kind !== 'corner-bribe') return noop(state);
       return attemptBribe(state, acting.id, rng);
     }
 
@@ -253,7 +277,8 @@ export function applyCommand(
     }
 
     case 'PROPOSE_TRADE': {
-      if (!isCurrent || state.phase !== 'AWAITING_ROLL' || command.offer.fromId !== acting.id) return noop(state);
+      const phaseOk = state.phase === 'AWAITING_ROLL' || state.phase === 'AWAITING_LIQUIDATION';
+      if (!isCurrent || !phaseOk || command.offer.fromId !== acting.id) return noop(state);
       if (!validateTradeOffer(state, command.offer)) return noop(state);
       return { ...proposeTrade(state, command.offer), tradeProposedThisTurn: true };
     }
@@ -261,7 +286,9 @@ export function applyCommand(
     case 'RESPOND_TRADE': {
       if (state.phase !== 'AWAITING_TRADE_RESPONSE' || !state.trade) return noop(state);
       if (state.trade.toId !== acting.id) return noop(state);
-      return respondTrade(state, command.accept);
+      const answered = respondTrade(state, command.accept);
+      // A trade made to raise cash may already cover the debt.
+      return answered.phase === 'AWAITING_LIQUIDATION' ? settleDebtIfAffordable(answered, answered.players[answered.currentPlayerIndex].id, rng) : answered;
     }
 
     case 'CANCEL_TRADE': {

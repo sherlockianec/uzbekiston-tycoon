@@ -27,7 +27,7 @@ export type SpaceKind =
   | 'corner-start'
   | 'corner-detention' // "just visiting" / jail corner
   | 'corner-rest'
-  | 'corner-go-to-detention'
+  | 'corner-bribe' // the Senior Official: optional bribe gamble, only while standing here
   | 'property'
   | 'infrastructure'
   | 'utility'
@@ -214,6 +214,16 @@ export interface GameNotice {
   spaceId?: string;
 }
 
+/** Describes the most recent token move so the UI can animate it (direction,
+ * kind). Purely informational: no rule reads it. */
+export interface MoveInfo {
+  playerId: string;
+  from: number;
+  to: number;
+  backward: boolean;
+  kind: 'walk' | 'travel' | 'jail' | 'card';
+}
+
 export interface LogEntry {
   id: string;
   turn: number;
@@ -257,6 +267,10 @@ export interface GameState {
   notices: GameNotice[];
   winnerId: string | null;
   settings: Settings;
+  /** Last token move (UI animation hint only). Optional so older saves still load. */
+  lastMove?: MoveInfo | null;
+  /** Phase to return to when a trade started during forced liquidation ends. */
+  tradeReturnPhase?: GamePhase | null;
 }
 
 // --- Commands (the only way to mutate GameState) ------------------------------
@@ -281,6 +295,7 @@ export type GameCommand =
   | { type: 'DECLARE_BANKRUPTCY' }
   | { type: 'TAKE_LOAN'; amount: number }
   | { type: 'REPAY_LOAN_EARLY' }
+  | { type: 'PAY_DEBT' }
   | { type: 'TRAVEL_NETWORK'; targetSpaceId: string }
   | { type: 'ATTEMPT_BRIBE' }
   | { type: 'DISMISS_BRIBE_RESULT' }

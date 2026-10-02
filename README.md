@@ -38,12 +38,14 @@ as the Vite base path. No secrets or backend are required.
 ## How the game plays
 
 - **Board:** 40 spaces - 22 properties in 8 colour groups, 4 transport assets, 2 utility
-  networks, Income Tax and Business Tax, 2 card decks, the Local Official, and the START /
-  Tax Inspection / Rest / Go-to-Inspection corners.
+  networks, Income Tax and Business Tax, 2 card decks, the Local Official, and four corners:
+  START, Tax Inspection, Rest and the Senior Official (bribe cell).
 - **Money:** Uzbek so'm, formatted `2 500 000 so'm`. Everyone starts with 15 000 000;
   passing START pays 1 500 000.
-- **No auctions.** Decline a purchase and the property simply stays unowned until
-  somebody (including you, later) lands there and buys it.
+- **No auctions.** Decline a purchase and the property stays unowned until somebody lands
+  there and buys it. Declining is not final for your turn: while you still stand on the
+  space, a **Buy** button stays in the action bar, so you can take a loan, sell, mortgage
+  or trade first and then buy.
 - **Development:** own a whole group, then upgrade Business → Company → Development →
   Business Center → Holding. Even-building is enforced; the final Holding upgrade costs
   double the earlier ones. The **Build** button lists every upgrade available right now.
@@ -54,15 +56,18 @@ as the Vite base path. No secrets or backend are required.
   installments (one each START pass). A toast announces every installment. One loan at a
   time; early full repayment allowed.
 - **Taxes:** Income Tax is 12% of cash. Business Tax is 150 000 per unmortgaged asset.
-- **Tax Inspection** (jail): pay a fine that shrinks the longer you wait (600k → 400k →
+- **Tax Inspection** (jail): you are always sent *forward* there, crossing START (and
+  collecting the salary) when you come from past it. Pay a fine that shrinks the longer you wait (600k → 400k →
   200k), use a release paper, or roll doubles. Your properties earn no rent while you're
   inside.
 - **Local Official:** a fixed 400 000 payment every time you land there.
-- **Bribe a Senior Official:** once per turn, before rolling - **40%** lose a random
+- **Senior Official** (corner cell): land on it and you may, only while standing there
+  and entirely by choice, gamble once: **40%** lose a random
   300 000-1 200 000, **35%** go straight to Tax Inspection, **25%** gain a random
   500 000-2 500 000. Odds always stay loss > jail > gain.
 - **Transport network:** standing on a transport asset, travel free (once per turn) to
-  any other one and resolve it as a normal landing.
+  any other one and resolve it as a normal landing. Travel is always forward, so a
+  destination behind you means a lap past START and you collect the salary.
 - **Cards:** 20 Mahalla + 20 Business Opportunity cards with real effects on cash,
   position, taxes, loans (cut / forgive / extend), tax immunity and purchase discounts.
 - **Trading:** cash + properties + release papers, with a Balance helper. AI opponents
@@ -72,6 +77,12 @@ as the Vite base path. No secrets or backend are required.
   Chaotic one occasionally gambles on the bribe - always playing by the same rules as you.
 - **End of game:** last player standing wins. The final table ranks everyone (winner,
   then reverse order of bankruptcy).
+
+- **Debt never forces bankruptcy:** when you owe money you can set the dialog aside and use
+  the Bank (loan), Trade and the sell/mortgage lists. Declare Bankruptcy is the last resort.
+- **Walk first, then consequences:** pawns hop to their tile before the purchase prompt,
+  rent, card or a bot's purchase is shown. Every cash change floats up next to the
+  player's icon in green (+) or red (-).
 
 Every cost button is **green when you can afford it** and **red, disabled and labelled
 "short by X"** when you can't.
@@ -119,7 +130,7 @@ src/
     translit.ts        Uzbek Latin → Cyrillic transliterator
 ```
 
-Saves are versioned (`SAVE_VERSION`, currently 2). A save from an older, incompatible
+Saves are versioned (`SAVE_VERSION`, currently 3; v1.2 changed the board). A save from an older, incompatible
 version is rejected with a friendly message rather than crashing; player preferences
 (language, sound, AI speed) are stored separately and survive across games.
 

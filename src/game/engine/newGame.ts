@@ -6,7 +6,7 @@ import { createRng, shuffle } from './random';
 
 // v2: mortgage deadlines, loan/immunity/discount state, bankruptcy order, per-turn
 // flags, no-auction flow. v1 saves have an incompatible shape and are rejected.
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 const TOKEN_COLORS = ['#2FB8AF', '#D4AF52', '#D4536B', '#5BB8E0'];
 const TOKEN_SHAPES: TokenShape[] = ['car', 'tower', 'bank', 'briefcase', 'train', 'building', 'plane', 'phone'];
@@ -76,5 +76,7 @@ export function createNewGame(config: NewGameConfig, seed: number = Date.now()):
     notices: [],
     winnerId: null,
     settings: config.settings,
+    lastMove: null,
+    tradeReturnPhase: null,
   };
 }

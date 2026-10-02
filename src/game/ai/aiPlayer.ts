@@ -1,5 +1,6 @@
 import type { Difficulty, GameCommand, GameState, Player } from '../types';
 import { PROPERTIES, GROUPS, isPropertyId } from '../data/properties';
+import { BOARD } from '../data/board';
 import { BRIBE_GAMBLE_LOSS_MAX, DETENTION_FINE_SCHEDULE, MORTGAGE_WARNING_LAPS } from '../data/economy';
 import { costToReachNextLevel, getPlayer, ownableDef, refundForCurrentLevel } from '../engine/helpers';
 import { canDevelop, canMortgage, canSellDevelopment, canBuy, canUnmortgage } from '../engine/properties';
@@ -41,10 +42,11 @@ export function decideAiCommand(
           const currentFine = DETENTION_FINE_SCHEDULE[Math.min(player.detentionTurns, DETENTION_FINE_SCHEDULE.length - 1)];
           if (player.cash >= currentFine * 1.5) return { type: 'PAY_DETENTION_FINE' };
         }
-        const bribeCmd = pickBribe(state, player, traits, rng, difficulty);
-        if (bribeCmd) return bribeCmd;
         return { type: 'ROLL_DICE' };
       }
+      // Standing on the Senior Official cell: some personalities may gamble (before moving on).
+      const bribeCmd = pickBribe(state, player, traits, rng, difficulty);
+      if (bribeCmd) return bribeCmd;
       if (state.doublesStreak > 0 && state.doublesStreak < 3) {
         return { type: 'ROLL_DICE' };
       }
@@ -262,6 +264,7 @@ export function pickBribe(
   difficulty: Difficulty
 ): GameCommand | null {
   if (traits.chaos < 0.5) return null;
+  if (BOARD[player.position]?.kind !== 'corner-bribe') return null;
   if (state.bribeGambleUsedThisTurn || player.inDetention || player.loan) return null;
   if (player.cash < BRIBE_GAMBLE_LOSS_MAX + traits.cashReserve) return null;
   const chance = traits.chaos * 0.5 * (difficulty === 'easy' ? 0.5 : 1);

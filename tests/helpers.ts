@@ -29,3 +29,8 @@ export function floatRng(floats: number[]): Rng {
     int: (min: number) => min,
   };
 }
+
+/** Puts every player on the Senior Official (bribe) corner, index 30. */
+export function atOfficial(s: GameState): GameState {
+  return { ...s, players: s.players.map((p) => ({ ...p, position: 30 })) };
+}

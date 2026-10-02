@@ -5,7 +5,7 @@ import { isPropertyId, PROPERTIES } from '../game/data/properties';
 import { formatSom } from '../utils/currency';
 import { t, localized } from '../i18n/strings';
 
-export default function LiquidationModal({ actorId }: { actorId: string }) {
+export default function LiquidationModal({ actorId, onSetAside }: { actorId: string; onSetAside?: () => void }) {
   const { state, dispatch } = useActiveGame();
   const lang = state.settings.language;
   const debt = state.pendingDebt;
@@ -102,6 +102,11 @@ export default function LiquidationModal({ actorId }: { actorId: string }) {
         )}
 
         <div className="modal__actions">
+          {onSetAside && (
+            <button className="btn btn--primary" onClick={onSetAside}>
+              {t('raiseMoney', lang)}
+            </button>
+          )}
           <button className="btn btn--danger" onClick={handleDeclareClick}>
             {t('declareBankruptcy', lang)}
           </button>

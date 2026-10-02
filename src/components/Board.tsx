@@ -17,6 +17,8 @@ import type { BoardSpace, GameState, Player } from '../game/types';
 import Emblem from './Emblem';
 import { t, localized } from '../i18n/strings';
 import { CORRUPTION_TOLL_AMOUNT } from '../game/data/economy';
+import MoneyFloats from './MoneyFloats';
+import { hopStepMs, pathSteps, reducedMotionPreferred } from '../utils/movement';
 
 const ICON_CARD_MAHALLA = '\ud83c\udff0';
 const ICON_CARD_BUSINESS = '\ud83d\udcbc';
@@ -26,7 +28,7 @@ const ICON_LOCK = '\ud83d\udd12';
 const ICON_START = '\ud83c\udfc1';
 const ICON_DETENTION = '\ud83d\udd0d';
 const ICON_REST = '\ud83c\udf75';
-const ICON_GO_TO_DETENTION = '\ud83d\udea8';
+const ICON_BRIBE_OFFICIAL = '\ud83c\udfdb\ufe0f';
 
 function gridPosition(index: number): { row: number; col: number } {
   if (index === 0) return { row: 11, col: 11 };
@@ -62,8 +64,8 @@ function cornerIcon(spaceId: string): string {
       return ICON_DETENTION;
     case 'rest':
       return ICON_REST;
-    case 'go-to-detention':
-      return ICON_GO_TO_DETENTION;
+    case 'bribe-official':
+      return ICON_BRIBE_OFFICIAL;
     default:
       return '';
   }
@@ -96,7 +98,13 @@ export default function Board({ state, onSelectSpace }: BoardProps) {
         </div>
         <div className="board__tokens-layer">
           {living.map((p) => (
-            <AnimatedToken key={p.id} player={p} allPlayers={living} animate={state.settings.animations} />
+            <AnimatedToken
+              key={p.id}
+              player={p}
+              allPlayers={living}
+              animate={state.settings.animations}
+              backward={state.lastMove?.playerId === p.id && state.lastMove.backward}
+            />
           ))}
         </div>
       </div>
@@ -113,7 +121,11 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
 
   if (isCorner) {
     return (
-      <div className="cell cell--corner" style={gridStyle}>
+      <div
+        className={`cell cell--corner${space.kind === 'corner-bribe' ? ' cell--bribe' : ''}`}
+        style={gridStyle}
+        title={space.kind === 'corner-bribe' ? t('bribeExplain', lang) : undefined}
+      >
         <span className="cell__icon">{cornerIcon(space.id)}</span>
         <span className="cell__name">{localized(label, lang)}</span>
       </div>
@@ -180,14 +192,10 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
 
 // --- Animated tokens -----------------------------------------------------------
 
-function reducedMotionPreferred(): boolean {
-  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
-}
-
-/** Steps a token through every intermediate space (taking whichever
- * direction, forward or backward, is the shorter path) instead of jumping
- * straight from the old space to the new one. */
-function useHopPath(actualPosition: number, animate: boolean) {
+/** Steps a token through every intermediate space, in the direction the move
+ * actually went (forward around the board, except "go back" cards), instead of
+ * jumping straight from the old space to the new one. */
+function useHopPath(actualPosition: number, animate: boolean, backward: boolean) {
   const [displayPos, setDisplayPos] = useState(actualPosition);
   const [hopping, setHopping] = useState(false);
   const prevRef = useRef(actualPosition);
@@ -207,27 +215,24 @@ function useHopPath(actualPosition: number, animate: boolean) {
       return;
     }
 
-    const forwardDist = (to - from + BOARD_SIZE) % BOARD_SIZE;
-    const backwardDist = (from - to + BOARD_SIZE) % BOARD_SIZE;
-    const goForward = forwardDist <= backwardDist;
-    const steps = goForward ? forwardDist : backwardDist;
-
-    if (steps === 0 || steps > 20) {
+    const steps = pathSteps(from, to, backward);
+    if (steps === 0) {
       setDisplayPos(to);
       return;
     }
 
-    const stepMs = 230;
+    const stepMs = hopStepMs(steps);
     for (let i = 1; i <= steps; i++) {
       const id = window.setTimeout(() => {
-        const next = goForward ? (from + i) % BOARD_SIZE : (((from - i) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
+        const next = backward ? (((from - i) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE : (from + i) % BOARD_SIZE;
         setDisplayPos(next);
         setHopping(true);
-        const clearId = window.setTimeout(() => setHopping(false), stepMs - 30);
+        const clearId = window.setTimeout(() => setHopping(false), Math.max(60, stepMs - 30));
         timers.current.push(clearId);
       }, i * stepMs);
       timers.current.push(id);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualPosition, animate]);
 
   useEffect(
@@ -247,8 +252,18 @@ const CLUSTER_OFFSETS = [
   { dx: 11, dy: 9 },
 ];
 
-function AnimatedToken({ player, allPlayers, animate }: { player: Player; allPlayers: Player[]; animate: boolean }) {
-  const { displayPos, hopping } = useHopPath(player.position, animate);
+function AnimatedToken({
+  player,
+  allPlayers,
+  animate,
+  backward,
+}: {
+  player: Player;
+  allPlayers: Player[];
+  animate: boolean;
+  backward: boolean;
+}) {
+  const { displayPos, hopping } = useHopPath(player.position, animate, backward);
   const { left, top } = coordsPercent(displayPos);
 
   const sharingSpace = allPlayers.filter((p) => p.position === player.position);
@@ -266,6 +281,7 @@ function AnimatedToken({ player, allPlayers, animate }: { player: Player; allPla
   return (
     <div className={`board-token${hopping ? ' board-token--hopping' : ''}`} style={style} title={player.name}>
       <TokenBust color={player.tokenColor} initial={player.name.trim().charAt(0).toUpperCase() || '?'} />
+      <MoneyFloats playerId={player.id} className="money-floats--token" />
     </div>
   );
 }

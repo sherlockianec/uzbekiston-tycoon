@@ -22,7 +22,7 @@ export function liquidateSellDevelopment(state: GameState, playerId: string, spa
  * turn: back to landing resolution if the debt interrupted a card's move,
  * otherwise straight back to AWAITING_ROLL. Otherwise leaves the state in
  * AWAITING_LIQUIDATION. */
-function settleDebtIfAffordable(state: GameState, playerId: string, rng: Rng): GameState {
+export function settleDebtIfAffordable(state: GameState, playerId: string, rng: Rng): GameState {
   const debt = state.pendingDebt;
   if (!debt) return state;
   const player = getPlayer(state, playerId);

@@ -212,6 +212,24 @@ export const STRINGS = {
   speedFast: S('Fast', 'Tez', 'Быстро'),
   speedNormal: S('Normal', "O'rtacha", 'Обычно'),
   speedSlow: S('Slow', 'Sekin', 'Медленно'),
+  statusMoving: S('{name} is on the move...', "{name} yo'lda...", '{name} в пути...'),
+  statusInDebt: S(
+    '{name}: you owe {amount}. Raise the money (loan, sell, trade) and pay, or declare bankruptcy as a last resort.',
+    "{name}: qarzingiz {amount}. Pul toping (kredit, sotish, savdo) va to'lang, yoki oxirgi chora sifatida bankrotlikni e'lon qiling.",
+    '{name}: вы должны {amount}. Найдите деньги (кредит, продажа, обмен) и заплатите, либо объявите банкротство в крайнем случае.'
+  ),
+  payDebt: S("Pay debt", "Qarzni to'lash", 'Погасить долг'),
+  debtOptions: S('Debt options', 'Qarz bo\'yicha amallar', 'Варианты по долгу'),
+  raiseMoney: S('Raise money first', 'Avval pul topish', 'Сначала найти деньги'),
+  notNow: S('Not now', 'Hozir emas', 'Не сейчас'),
+  buyLaterHint: S(
+    'You can still buy this later this turn: take a loan, sell or trade first, then use Buy.',
+    "Bu yurishda keyinroq ham sotib olishingiz mumkin: avval kredit oling, soting yoki savdo qiling, so'ng Sotib olishni bosing.",
+    'Купить можно и позже в этот ход: сначала возьмите кредит, продайте или обменяйтесь, затем нажмите «Купить».'
+  ),
+  walkAway: S('Walk away', "O'tib ketish", 'Пройти мимо'),
+  crossesStart: S('passes START: +{amount}', 'BOSHLANISH orqali: +{amount}', 'через СТАРТ: +{amount}'),
+  forwardOnly: S('Always travels forward around the board.', "Doim taxta bo'ylab oldinga yuradi.", 'Всегда движется вперёд по полю.'),
   statusWaiting: S('Waiting...', 'Kutilmoqda...', 'Ожидание...'),
   statusAiPlaying: S('{name} is playing...', "{name} o'ynamoqda...", '{name} ходит...'),
   statusDetention: S(

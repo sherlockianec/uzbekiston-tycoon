@@ -11,7 +11,10 @@ import {
   BRIBE_GAMBLE_LOSS_MIN,
   randomBribeAmount,
 } from '../src/game/data/economy';
-import { newTestGame, floatRng } from './helpers';
+import { newTestGame as plainGame, floatRng, atOfficial } from './helpers';
+
+// The gamble is only possible while standing on the Senior Official cell.
+const newTestGame = () => atOfficial(plainGame());
 
 const attempt = (s: GameState, floats: number[], who = 0) =>
   applyCommand(s, { type: 'ATTEMPT_BRIBE' }, s.players[who].id, floatRng(floats));

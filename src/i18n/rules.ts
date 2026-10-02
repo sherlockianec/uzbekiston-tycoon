@@ -34,18 +34,18 @@ export const RULE_SECTIONS: RuleSection[] = [
     id: 'movement',
     title: { en: 'Movement', uz: 'Harakat', ru: 'Движение' },
     body: {
-      en: "Roll two dice and move that many spaces around the board. Roll doubles and you roll again after resolving your move \u2014 but roll doubles three times in a row and you're sent straight to Tax Inspection instead. Pass or land on START and collect {salary}.",
-      uz: "Ikkita zar tashlang va shuncha katak yuring. Dubl tushsa, yurishingizni bajargach yana tashlaysiz \u2014 lekin ketma-ket uch marta dubl tushsa, to'g'ridan-to'g'ri Soliq tekshiruviga yuborilasiz. BOSHLANISH'dan o'tsangiz yoki unga tushsangiz, {salary} olasiz.",
-      ru: 'Бросьте два кубика и сделайте столько ходов по полю. Выпал дубль \u2014 бросаете снова после хода, но три дубля подряд отправляют вас прямо на налоговую проверку. Пройдя или остановившись на СТАРТЕ, вы получаете {salary}.',
+      en: "Roll two dice and move that many spaces around the board. Roll doubles and you roll again after resolving your move \u2014 but roll doubles three times in a row and you're sent straight to Tax Inspection instead. Pass or land on START and collect {salary}. Pieces only ever move forward around the board (except a few cards that say \"go back\"), so being sent to Tax Inspection from past it takes you across START, and you collect the salary on the way.",
+      uz: "Ikkita zar tashlang va shuncha katak yuring. Dubl tushsa, yurishingizni bajargach yana tashlaysiz \u2014 lekin ketma-ket uch marta dubl tushsa, to'g'ridan-to'g'ri Soliq tekshiruviga yuborilasiz. BOSHLANISH'dan o'tsangiz yoki unga tushsangiz, {salary} olasiz. Toshlar doim taxta bo'ylab oldinga yuradi (\"orqaga\" deydigan bir nechta kartadan tashqari), shuning uchun Soliq tekshiruviga undan o'tib ketgan joydan yuborilsangiz, BOSHLANISH'dan o'tasiz va maosh olasiz.",
+      ru: 'Бросьте два кубика и сделайте столько ходов по полю. Выпал дубль \u2014 бросаете снова после хода, но три дубля подряд отправляют вас прямо на налоговую проверку. Пройдя или остановившись на СТАРТЕ, вы получаете {salary}. Фишки всегда идут только вперёд (кроме нескольких карт «назад»), поэтому при отправке на налоговую проверку из-за её пределов вы проезжаете СТАРТ и получаете зарплату.',
     },
   },
   {
     id: 'buying',
     title: { en: 'Buying property', uz: 'Mulk sotib olish', ru: 'Покупка имущества' },
     body: {
-      en: 'Land on an unowned property, piece of infrastructure, or utility network, and you may buy it at list price. Decline, and it simply stays unowned until someone \u2014 anyone, including you later \u2014 lands there and buys it. There are no auctions.',
-      uz: "Egasiz mulk, infratuzilma yoki kommunal tarmoqqa tushsangiz, uni belgilangan narxda sotib olishingiz mumkin. Rad etsangiz, u egasiz qoladi \u2014 keyin kimdir (shu jumladan siz ham) unga tushib, sotib olguncha. Auksionlar yo'q.",
-      ru: 'Остановившись на свободном имуществе, транспортном активе или сети, вы можете купить его по цене из списка. Откажетесь \u2014 он останется свободным, пока кто-нибудь (в том числе вы позже) не остановится на нём и не купит. Аукционов нет.',
+      en: 'Land on an unowned property, piece of infrastructure, or utility network, and you may buy it at list price. Decline, and it simply stays unowned until someone \u2014 anyone, including you later \u2014 lands there and buys it. There are no auctions. Declining is not final for your turn: while you are still standing on the space you can take a loan, sell buildings, mortgage or trade to raise the money, and then press Buy.',
+      uz: "Egasiz mulk, infratuzilma yoki kommunal tarmoqqa tushsangiz, uni belgilangan narxda sotib olishingiz mumkin. Rad etsangiz, u egasiz qoladi \u2014 keyin kimdir (shu jumladan siz ham) unga tushib, sotib olguncha. Auksionlar yo'q. Rad etish shu yurishda yakuniy emas: o'sha katakda turganingizda kredit olishingiz, bino sotishingiz, garovga qo'yishingiz yoki savdo qilib pul topishingiz va so'ng Sotib olishni bosishingiz mumkin.",
+      ru: 'Остановившись на свободном имуществе, транспортном активе или сети, вы можете купить его по цене из списка. Откажетесь \u2014 он останется свободным, пока кто-нибудь (в том числе вы позже) не остановится на нём и не купит. Аукционов нет. Отказ не окончателен в этот ход: пока вы стоите на этой клетке, можно взять кредит, продать постройки, заложить имущество или обменяться, чтобы собрать деньги, а затем нажать «Купить».',
     },
   },
   {
@@ -79,9 +79,9 @@ export const RULE_SECTIONS: RuleSection[] = [
     id: 'network',
     title: { en: 'Transport network', uz: 'Transport tarmog\u2019i', ru: 'Транспортная сеть' },
     body: {
-      en: 'Standing on a transport asset (railways, airways, metro...)? Once per turn, before you roll, you can travel for free to any other transport asset and resolve it as if you had landed there normally \u2014 buy it, or pay its owner.',
-      uz: "Transport aktivida (temir yo'l, aviatsiya, metro...) turibsizmi? Har navbatda bir marta, zar tashlashdan oldin, bepul boshqa istalgan transport aktiviga o'tishingiz va uni xuddi odatiy tushgandek hal qilishingiz mumkin \u2014 sotib olasiz yoki egasiga to'laysiz.",
-      ru: 'Стоите на транспортном активе (железные дороги, авиалинии, метро...)? Раз за ход, до броска кубиков, вы можете бесплатно переехать на любой другой транспортный актив и разыграть его как обычную остановку \u2014 купить или заплатить владельцу.',
+      en: 'Standing on a transport asset (railways, airways, metro...)? Once per turn, before you roll, you can travel for free to any other transport asset and resolve it as if you had landed there normally \u2014 buy it, or pay its owner. You always travel forward around the board, never back, so a destination \"behind\" you means a lap past START and you collect the salary.',
+      uz: "Transport aktivida (temir yo'l, aviatsiya, metro...) turibsizmi? Har navbatda bir marta, zar tashlashdan oldin, bepul boshqa istalgan transport aktiviga o'tishingiz va uni xuddi odatiy tushgandek hal qilishingiz mumkin \u2014 sotib olasiz yoki egasiga to'laysiz. Siz doim oldinga yurasiz, hech qachon orqaga emas, shuning uchun \"orqadagi\" manzil BOSHLANISH'dan o'tishni anglatadi va maosh olasiz.",
+      ru: 'Стоите на транспортном активе (железные дороги, авиалинии, метро...)? Раз за ход, до броска кубиков, вы можете бесплатно переехать на любой другой транспортный актив и разыграть его как обычную остановку \u2014 купить или заплатить владельцу. Вы всегда едете вперёд, никогда назад, поэтому пункт «позади» означает круг через СТАРТ и получение зарплаты.',
     },
   },
   {
@@ -142,9 +142,9 @@ export const RULE_SECTIONS: RuleSection[] = [
     id: 'bribe',
     title: { en: 'Bribe a Senior Official', uz: 'Yuqori amaldorga pora berish', ru: 'Подкуп высокопоставленного чиновника' },
     body: {
-      en: "On your turn, before you roll, you may voluntarily try your luck once: {lossPct}% chance to lose a random {lossMin} to {lossMax}, {jailPct}% chance of landing straight in Tax Inspection, and {gainPct}% chance to gain a random {gainMin} to {gainMax}. The odds are not in your favor \u2014 it's there for players who like to gamble, not a reliable strategy.",
-      uz: "O'z navbatingizda, zar tashlashdan oldin, bir marta ixtiyoriy omadingizni sinashingiz mumkin: {lossPct}% ehtimol bilan tasodifiy {lossMin} dan {lossMax} gacha yo'qotasiz, {jailPct}% ehtimol bilan to'g'ridan-to'g'ri Soliq tekshiruviga tushasiz, {gainPct}% ehtimol bilan tasodifiy {gainMin} dan {gainMax} gacha yutasiz. Ehtimollar sizning foydangizga emas \u2014 bu tavakkalchilarni sevuvchilar uchun, ishonchli strategiya emas.",
-      ru: 'В свой ход, до броска кубиков, можно один раз добровольно испытать удачу: {lossPct}% \u2014 потерять случайную сумму от {lossMin} до {lossMax}, {jailPct}% \u2014 сразу попасть на налоговую проверку, {gainPct}% \u2014 получить случайную сумму от {gainMin} до {gainMax}. Шансы не в вашу пользу: это для любителей риска, а не надёжная стратегия.',
+      en: "The Senior Official has his own cell on the board (top-right corner). Land on it and you may \u2014 entirely by choice, and only while you are standing there \u2014 try your luck once: {lossPct}% chance to lose a random {lossMin} to {lossMax}, {jailPct}% chance of landing straight in Tax Inspection, and {gainPct}% chance to gain a random {gainMin} to {gainMax}. The odds are not in your favor \u2014 it's there for players who like to gamble, not a reliable strategy.",
+      uz: "Katta amaldorning taxtada o'z katagi bor (yuqori o'ng burchak). Unga tushsangiz, faqat o'sha yerda turganingizda va butunlay ixtiyoriy ravishda bir marta omadingizni sinashingiz mumkin: {lossPct}% ehtimol bilan tasodifiy {lossMin} dan {lossMax} gacha yo'qotasiz, {jailPct}% ehtimol bilan to'g'ridan-to'g'ri Soliq tekshiruviga tushasiz, {gainPct}% ehtimol bilan tasodifiy {gainMin} dan {gainMax} gacha yutasiz. Ehtimollar sizning foydangizga emas \u2014 bu tavakkalchilarni sevuvchilar uchun, ishonchli strategiya emas.",
+      ru: 'У высокопоставленного чиновника своя клетка на поле (правый верхний угол). Остановившись на ней, вы можете \u2014 исключительно по желанию и только пока стоите там \u2014 один раз испытать удачу: {lossPct}% \u2014 потерять случайную сумму от {lossMin} до {lossMax}, {jailPct}% \u2014 сразу попасть на налоговую проверку, {gainPct}% \u2014 получить случайную сумму от {gainMin} до {gainMax}. Шансы не в вашу пользу: это для любителей риска, а не надёжная стратегия.',
     },
   },
   {

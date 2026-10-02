@@ -76,7 +76,7 @@ export default function BribeModal({ actorId, onClose }: { actorId: string; onCl
         </div>
         <div className="modal__actions">
           <button className="btn" onClick={onClose}>
-            {t('cancel', lang)}
+            {t('walkAway', lang)}
           </button>
           <button className="btn btn--risk" onClick={() => dispatch({ type: 'ATTEMPT_BRIBE' }, actorId)}>
             {t('tryBribe', lang)}

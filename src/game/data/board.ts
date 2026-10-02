@@ -12,7 +12,7 @@ import { PROPERTIES, INFRASTRUCTURE, UTILITIES, TAXES } from './properties';
 // index 11-19        -> left column, bottom to top
 // index 20           -> rest corner (top-left)
 // index 21-29        -> top row, left to right
-// index 30           -> go-to-detention corner (top-right)
+// index 30           -> senior-official (bribe) corner (top-right)
 // index 31-39        -> right column, top to bottom
 
 interface Slot {
@@ -51,7 +51,7 @@ const SLOTS: Slot[] = [
   { id: 'enter-engineering', kind: 'property' }, // 27
   { id: 'uzbekenergo', kind: 'utility' }, // 28
   { id: 'akfa', kind: 'property' }, // 29
-  { id: 'go-to-detention', kind: 'corner-go-to-detention' }, // 30
+  { id: 'bribe-official', kind: 'corner-bribe' }, // 30
   { id: 'uzmetkombinat', kind: 'property' }, // 31
   { id: 'almalyk-mmc', kind: 'property' }, // 32
   { id: 'mahalla-card-3', kind: 'card-mahalla' }, // 33
@@ -85,11 +85,11 @@ export const CORNER_NAMES: Record<string, { name: string; nameUz: string; nameRu
     nameRu: '\u0427\u0430\u0439\u0445\u0430\u043d\u0430 \u0427\u043e\u0440\u0441\u0443',
     nameUzCyrl: '\u0427\u043e\u0440\u0441\u0443 \u0447\u043e\u0439\u062e\u043e\u043d\u0430\u0441\u0438',
   },
-  'go-to-detention': {
-    name: 'Go to Inspection',
-    nameUz: 'Tekshiruvga!',
-    nameRu: '\u041d\u0430 \u043f\u0440\u043e\u0432\u0435\u0440\u043a\u0443!',
-    nameUzCyrl: '\u0422\u0435\u043a\u0448\u0438\u0440\u0443\u0432\u0433\u0430!',
+  'bribe-official': {
+    name: 'Senior Official',
+    nameUz: 'Katta amaldor',
+    nameRu: '\u0412\u044b\u0441\u043e\u043a\u0438\u0439 \u0447\u0438\u043d\u043e\u0432\u043d\u0438\u043a',
+    nameUzCyrl: '\u041a\u0430\u0442\u0442\u0430 \u0430\u043c\u0430\u043b\u0434\u043e\u0440',
   },
 };
 

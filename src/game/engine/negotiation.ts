@@ -1,4 +1,4 @@
-import type { GameState, TradeOffer } from '../types';
+import type { GamePhase, GameState, TradeOffer } from '../types';
 import { formatSom } from '../../utils/currency';
 import { appendLog, getPlayer, ownableDef, updateOwnership, updatePlayer } from './helpers';
 
@@ -10,13 +10,19 @@ export function proposeTrade(state: GameState, offer: Omit<TradeOffer, 'id'>): G
     state,
     `${getPlayer(state, offer.fromId).name} proposed a trade to ${getPlayer(state, offer.toId).name}.`
   );
-  return { ...next, trade, phase: 'AWAITING_TRADE_RESPONSE' };
+  // A trade may be opened while paying off a debt; remember to go back there.
+  const returnPhase: GamePhase = state.phase === 'AWAITING_LIQUIDATION' ? 'AWAITING_LIQUIDATION' : 'AWAITING_ROLL';
+  return { ...next, trade, phase: 'AWAITING_TRADE_RESPONSE', tradeReturnPhase: returnPhase };
+}
+
+function afterTrade(state: GameState): GameState {
+  return { ...state, trade: null, phase: state.tradeReturnPhase ?? 'AWAITING_ROLL', tradeReturnPhase: null };
 }
 
 export function cancelTrade(state: GameState): GameState {
   if (!state.trade) return state;
   const next = appendLog(state, 'The trade offer was withdrawn.');
-  return { ...next, trade: null, phase: 'AWAITING_ROLL' };
+  return afterTrade(next);
 }
 
 export function respondTrade(state: GameState, accept: boolean): GameState {
@@ -25,7 +31,7 @@ export function respondTrade(state: GameState, accept: boolean): GameState {
 
   if (!accept) {
     const next = appendLog(state, `${getPlayer(state, trade.toId).name} declined the trade.`);
-    return { ...next, trade: null, phase: 'AWAITING_ROLL' };
+    return afterTrade(next);
   }
 
   let next = state;
@@ -49,5 +55,5 @@ export function respondTrade(state: GameState, accept: boolean): GameState {
     next,
     `${getPlayer(state, trade.fromId).name} and ${getPlayer(state, trade.toId).name} completed a trade.`
   );
-  return { ...next, trade: null, phase: 'AWAITING_ROLL' };
+  return afterTrade(next);
 }

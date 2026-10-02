@@ -154,11 +154,12 @@ export default function PropertyInspector({ spaceId, actorId, onClose, forceDeci
           </div>
         )}
 
+        {forceDecision && <p className="text-sm text-muted">{t('buyLaterHint', lang)}</p>}
         <div className="modal__actions">
           {forceDecision ? (
             <>
               <button className="btn" onClick={() => dispatch({ type: 'DECLINE_PURCHASE' }, actorId)}>
-                {t('decline', lang)}
+                {t('notNow', lang)}
               </button>
               <CostButton
                 label={t('buy', lang)}

@@ -1,4 +1,4 @@
-import type { CardDef, DeckId, GameState } from '../types';
+import type { CardDef, DeckId, GameState, MoveInfo } from '../types';
 import { BOARD, BOARD_SIZE, spaceById, nearestPropertyInGroup } from '../data/board';
 import { GROUPS, TAXES, isInfrastructureId } from '../data/properties';
 import { MAHALLA_CARDS, BUSINESS_CARDS, ALL_CARDS } from '../data/cards';
@@ -62,8 +62,16 @@ function grantSalary(state: GameState, playerId: string): GameState {
   return next;
 }
 
-function setPosition(state: GameState, playerId: string, index: number): GameState {
-  return updatePlayer(state, playerId, (p) => ({ ...p, position: index }));
+function setPosition(
+  state: GameState,
+  playerId: string,
+  index: number,
+  kind: MoveInfo['kind'] = 'walk',
+  backward = false
+): GameState {
+  const from = getPlayer(state, playerId).position;
+  const next = updatePlayer(state, playerId, (p) => ({ ...p, position: index }));
+  return from === index ? next : { ...next, lastMove: { playerId, from, to: index, backward, kind } };
 }
 
 export function moveForward(state: GameState, playerId: string, spaces: number, collectSalary = true): GameState {
@@ -79,27 +87,37 @@ export function moveForward(state: GameState, playerId: string, spaces: number, 
 export function moveBackward(state: GameState, playerId: string, spaces: number): GameState {
   const player = getPlayer(state, playerId);
   const newPos = (((player.position - spaces) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE;
-  return setPosition(state, playerId, newPos);
+  return setPosition(state, playerId, newPos, 'card', true);
 }
 
 export function moveToTarget(
   state: GameState,
   playerId: string,
   targetIndex: number,
-  collectIfPassed: boolean
+  collectIfPassed: boolean,
+  kind: MoveInfo['kind'] = 'card'
 ): GameState {
   const player = getPlayer(state, playerId);
   let distance = targetIndex - player.position;
   if (distance <= 0) distance += BOARD_SIZE;
   const passedStart = player.position + distance >= BOARD_SIZE;
-  let next = setPosition(state, playerId, targetIndex);
+  let next = setPosition(state, playerId, targetIndex, kind);
   if (passedStart && collectIfPassed) next = grantSalary(next, playerId);
   return next;
 }
 
+/** Tokens only ever travel FORWARD to Tax Inspection, so anyone sent there
+ * from past it (most of the board) crosses START and collects the salary.
+ * Someone already standing there simply stays put (no free lap). */
 export function sendToDetention(state: GameState, playerId: string): GameState {
   const detentionIndex = spaceById('detention').index;
-  let next = setPosition(state, playerId, detentionIndex);
+  const from = getPlayer(state, playerId).position;
+  let next = state;
+  if (from !== detentionIndex) {
+    const passedStart = from > detentionIndex;
+    next = setPosition(next, playerId, detentionIndex, 'jail');
+    if (passedStart) next = grantSalary(next, playerId);
+  }
   next = updatePlayer(next, playerId, (p) => ({ ...p, inDetention: true, detentionTurns: 0 }));
   next = appendLog(next, `${getPlayer(state, playerId).name} was sent to Tax Inspection.`);
   return next;
@@ -401,10 +419,6 @@ export function resolveLanding(state: GameState, playerId: string, rng: Rng): Ga
       return drawCard(state, playerId, 'mahalla', rng);
     case 'card-business':
       return drawCard(state, playerId, 'business', rng);
-    case 'corner-go-to-detention': {
-      const sent = sendToDetention(state, playerId);
-      return { ...sent, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
-    }
     default:
       return { ...state, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
   }

@@ -5,7 +5,7 @@ import { decideAiCommand, pickBribe, pickRedemption } from '../src/game/ai/aiPla
 import { PERSONALITIES } from '../src/game/ai/personalities';
 import { BRIBE_GAMBLE_LOSS_MAX, MORTGAGE_WARNING_LAPS } from '../src/game/data/economy';
 import { PROPERTIES } from '../src/game/data/properties';
-import { newTestGame } from './helpers';
+import { newTestGame, atOfficial } from './helpers';
 
 const mortgagedFor = (cash: number, laps: number): GameState => {
   const s = newTestGame();
@@ -55,7 +55,7 @@ describe('AI mortgage redemption', () => {
 
 describe('AI bribe gamble', () => {
   const rich = (): GameState => {
-    const s = newTestGame();
+    const s = atOfficial(newTestGame());
     return { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: 50_000_000 } : p)) };
   };
   it('only the chaotic personality ever gambles', () => {
@@ -70,8 +70,13 @@ describe('AI bribe gamble', () => {
     const s = rich();
     expect(pickBribe(s, s.players[0], PERSONALITIES.chaotic, () => 0.99, 'hard')).toBeNull();
   });
+  it('never when not standing on the Senior Official cell', () => {
+    const s = rich();
+    const away = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, position: 5 } : p)) };
+    expect(pickBribe(away, away.players[0], PERSONALITIES.chaotic, () => 0, 'hard')).toBeNull();
+  });
   it('never when a worst-case loss could force liquidation', () => {
-    const s = newTestGame();
+    const s = atOfficial(newTestGame());
     const poor = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: BRIBE_GAMBLE_LOSS_MAX + PERSONALITIES.chaotic.cashReserve - 1 } : p)) };
     expect(pickBribe(poor, poor.players[0], PERSONALITIES.chaotic, () => 0, 'hard')).toBeNull();
   });

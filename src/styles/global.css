@@ -546,7 +546,7 @@ a {
   width: 38px;
   height: 38px;
   transform: translate(-50%, -50%);
-  transition: left 0.22s cubic-bezier(0.34, 1.2, 0.4, 1), top 0.22s cubic-bezier(0.34, 1.2, 0.4, 1);
+  transition: left 0.16s ease-out, top 0.16s ease-out;
   filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.5));
 }
 .board-token__svg {
@@ -996,4 +996,91 @@ a {
   gap: 6px;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* --- v1.2: floating money badges (+ green / - red) ------------------------------ */
+
+.money-floats {
+  position: absolute;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-end;
+  gap: 2px;
+  pointer-events: none;
+  z-index: 30;
+}
+.money-floats--card {
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.money-floats--token {
+  left: 50%;
+  bottom: 100%;
+  margin-bottom: 2px;
+  align-items: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.money-float {
+  font-weight: 800;
+  font-size: 13px;
+  line-height: 1.1;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(8, 14, 28, 0.88);
+  border: 1px solid currentColor;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  animation: money-float-rise 2.3s ease-out forwards;
+  will-change: transform, opacity;
+}
+.money-floats--token .money-float {
+  font-size: 12px;
+}
+.money-float--gain {
+  color: var(--success);
+}
+.money-float--loss {
+  color: var(--danger);
+}
+@keyframes money-float-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.85);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.08);
+  }
+  22% {
+    transform: translateY(-2px) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-34px) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .money-float {
+    animation: money-float-fade 2.3s linear forwards;
+  }
+  @keyframes money-float-fade {
+    0%,
+    80% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+.player-card__cash {
+  position: relative;
+}
+.cell--bribe .cell__icon {
+  filter: drop-shadow(0 0 6px rgba(212, 175, 55, 0.7));
 }

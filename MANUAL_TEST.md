@@ -34,3 +34,13 @@ each box. Do it once on desktop and once on a phone (or a narrow browser window)
 - [ ] Sound on/off works; reduced-motion setting disables animation
 - [ ] No horizontal scroll on a phone; buttons are tappable; modals fit the screen
 - [ ] Continue Game resumes exactly where you quit
+
+
+## v1.2 checks (do these on desktop and on a phone)
+1. Roll: the pawn hops tile by tile; the Buy / Not now dialog appears only AFTER it lands. Play a bot: its purchase and any rent appear only after its pawn has arrived.
+2. Every cash change shows a green +amount or red -amount next to the player's icon in the player list and above the pawn on the board (rent, salary, tax, cards, bribe, loans, trades).
+3. Railways/Airways/Metro: the travel list never goes backwards; Metro -> Railways shows "passes START: +1 500 000" and pays it.
+4. Get sent to Tax Inspection from the far side of the board (card or 3 doubles): the pawn walks forward past START and you gain the salary.
+5. Stand on an unowned, unaffordable property: press "Not now", take a loan in Bank, then press Buy in the action bar.
+6. Corner top-right is the Senior Official. Land on it: the bribe dialog opens; "Walk away" works; the Bribe button is not shown anywhere else.
+7. Get into debt (e.g. land on a big rent with little cash): "Raise money first" closes the dialog; Bank, Trade and Pay debt work; Declare Bankruptcy is optional until you choose it.

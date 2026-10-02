@@ -193,3 +193,21 @@ Out of scope (explicitly rejected): Fast/Long modes, music, real logos, auctions
 - Never call `resolveLanding` directly after movement (lesson 2); never put raw `\uXXXX` in JSX text (lesson 1).
 - Keep the engine pure and UI-free; UI only dispatches commands as `actorId`.
 - Before any release: run a real browser playthrough, then update README, bump version, zip without `node_modules`/`dist`.
+
+
+---
+## 9. v1.2 changes (gameplay + UX, engine-visible)
+`SAVE_VERSION` is now **3** (board layout changed). Verified: `tsc` clean, `vitest` 236/236 in 17 files, `npm run build` OK. Still never viewed in a real browser (no browser in the authoring sandbox) - run `MANUAL_TEST.md` section v1.2.
+
+1. **Walk first, consequences after.** The engine still resolves a move and its landing in one `applyCommand`. `GameProvider` now keeps the real state (AI, autosave) and a *presented* state: when a command moves a pawn, `planMovementHold` (`src/utils/movement.ts`) shows the new position + dice but the OLD cash/ownership/phase for `steps x hopStepMs + 450ms`; `busy` is true meanwhile (actions hidden, AI loop paused, dispatch ignored). Prompts, rent, cards and bot purchases therefore appear only after the pawn arrives. Off when animations are off or `prefers-reduced-motion`.
+2. **Money floats.** `GameProvider` diffs cash in the presented state and emits `floats` (+green / -red); `MoneyFloats` renders them on player cards and above board tokens (transform/opacity only).
+3. **Transport is forward-only** and collects the salary when it crosses START (`moveToTarget(..., true, 'travel')`).
+4. **Tax Inspection is forward-only**: `sendToDetention` walks forward to cell 10 and pays the salary if that crosses START (from > 10). Triple doubles no longer clobber a liquidation triggered by that salary.
+5. **Buy stays available**: `BUY_PROPERTY` also works in `AWAITING_ROLL` when the player has rolled this turn and stands on an unowned ownable space. The purchase dialog's button is now "Not now" with a hint. ActionBar shows a green/red Buy button.
+6. **Senior Official is cell 30** (`corner-bribe`, id `bribe-official`); the old go-to-inspection corner is gone. `ATTEMPT_BRIBE` requires standing there; the dialog opens automatically on landing for humans (button "Walk away" to decline); AI `pickBribe` only fires there, after its roll.
+7. **Debt is not mandatory bankruptcy**: in `AWAITING_LIQUIDATION` the commands `TAKE_LOAN`, `SELL_DEVELOPMENT`, `MORTGAGE`, `PROPOSE_TRADE`, and the new `PAY_DEBT` work; the debt auto-settles the moment cash covers it. A trade started in debt returns there (`tradeReturnPhase`). The debt dialog has "Raise money first" (set aside); the action bar then shows Pay debt / Debt options / Bank / Trade.
+- Additive state fields (optional, UI hints only): `lastMove` (direction/kind for animation), `tradeReturnPhase`.
+- New tests: `tests/v12-rules.test.ts`, `tests/movement-hold.test.ts`; `bribe`/`ai` tests now start on the bribe cell.
+
+### Not done yet (from the v1.2 brief)
+The "Look & Feel" visual stages 1-5 (design system, 2.5D board, bust pawns, dice/cards/money feedback, polish) have NOT been started: they were queued behind these rule fixes, one stage at a time with screenshot feedback. Bot balance (Banker never wins, bots rarely build/trade, long games) is also untouched.

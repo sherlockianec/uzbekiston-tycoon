@@ -4,6 +4,7 @@ import { TOKEN_ICONS } from '../utils/tokenIcons';
 import { PROPERTIES, INFRASTRUCTURE, UTILITIES, isPropertyId, isInfrastructureId } from '../game/data/properties';
 import { t, localized } from '../i18n/strings';
 import { isMortgageUrgent, mortgageLapsLeft } from '../game/engine';
+import MoneyFloats from './MoneyFloats';
 
 export function PlayerList({ state }: { state: GameState }) {
   return (
@@ -35,7 +36,10 @@ function PlayerCard({ player, isActive, state }: { player: Player; isActive: boo
           </span>
         )}
       </div>
-      <div className="player-card__cash money">{formatSom(player.cash)}</div>
+      <div className="player-card__cash money">
+        {formatSom(player.cash)}
+        <MoneyFloats playerId={player.id} className="money-floats--card" />
+      </div>
       <div className="player-card__meta">
         {ownedCount} {t('properties', lang).toLowerCase()}
         {player.inDetention ? ' \u00b7 \u23f8 detention' : ''}

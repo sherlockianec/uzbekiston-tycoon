@@ -83,7 +83,7 @@ export const CORNER_NAMES: Record<string, { name: string; nameUz: string; nameRu
     name: 'Chorsu Choyxona',
     nameUz: 'Chorsu Choyxonasi',
     nameRu: '\u0427\u0430\u0439\u0445\u0430\u043d\u0430 \u0427\u043e\u0440\u0441\u0443',
-    nameUzCyrl: '\u0427\u043e\u0440\u0441\u0443 \u0447\u043e\u0439\u062e\u043e\u043d\u0430\u0441\u0438',
+    nameUzCyrl: '\u0427\u043e\u0440\u0441\u0443 \u0447\u043e\u0439\u0445\u043e\u043d\u0430\u0441\u0438',
   },
   'bribe-official': {
     name: 'Senior Official',

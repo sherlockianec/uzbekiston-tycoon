@@ -1,9 +1,12 @@
+import type React from 'react';
 import { BOARD } from '../game/data/board';
 import { INFRASTRUCTURE } from '../game/data/properties';
 import { formatSom } from '../utils/currency';
 import { GO_SALARY } from '../game/data/economy';
 import { t, tf, localized } from '../i18n/strings';
 import { useActiveGame } from '../state/GameProvider';
+import Icon from './icons/Icon';
+import { assetIconName } from './icons/iconFor';
 
 export default function NetworkTravelModal({ actorId, onClose }: { actorId: string; onClose: () => void }) {
   const { state, dispatch } = useActiveGame();
@@ -37,6 +40,11 @@ export default function NetworkTravelModal({ actorId, onClose }: { actorId: stri
                   onClose();
                 }}
               >
+                {assetIconName(id) && (
+                  <span className="group-dot" style={{ '--badge-color': '#6b7c99' } as React.CSSProperties}>
+                    <Icon name={assetIconName(id)!} />
+                  </span>
+                )}
                 <span style={{ flex: 1 }}>
                   {localized(def, lang)}
                   {crossesStart && (

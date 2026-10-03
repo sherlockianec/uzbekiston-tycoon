@@ -87,6 +87,10 @@ as the Vite base path. No secrets or backend are required.
 Every cost button is **green when you can afford it** and **red, disabled and labelled
 "short by X"** when you can't.
 
+## Look and feel
+
+Deep navy, turquoise and gold, with sparing Uzbek geometric texture (girih star, ikat strip). All colours, sizes, radii, shadows and motion timings are design tokens in `src/styles/tokens.css`. Fonts (Manrope for display, Inter for text; both cover Latin, Cyrillic and the Uzbek letters) and every icon are bundled, so the game works fully offline. Icons are original SVG in `src/components/icons/`.
+
 ## Architecture
 
 The design is a "pure engine, thin UI" pattern:
@@ -122,6 +126,8 @@ src/
     persistence.ts     localStorage save/load (versioned) + saved preferences
   state/GameProvider.tsx   Context: dispatch, autosave, preferences, AI turn loop
   components/          Board, panels, modals, CostButton, toasts, language switcher
+    icons/             Icon + the original SVG icon set
+  styles/              tokens.css (design tokens), fonts.css (bundled fonts), global.css
   pages/               Start / New Game / Game / Rules screens
   i18n/
     strings.ts         UI chrome in 4 languages, t() / tf() / localized()

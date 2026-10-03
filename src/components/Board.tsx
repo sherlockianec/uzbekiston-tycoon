@@ -18,17 +18,10 @@ import Emblem from './Emblem';
 import { t, localized } from '../i18n/strings';
 import { CORRUPTION_TOLL_AMOUNT } from '../game/data/economy';
 import MoneyFloats from './MoneyFloats';
+import Icon from './icons/Icon';
+import { assetIconName, specialIconName } from './icons/iconFor';
 import { hopStepMs, pathSteps, reducedMotionPreferred } from '../utils/movement';
 
-const ICON_CARD_MAHALLA = '\ud83c\udff0';
-const ICON_CARD_BUSINESS = '\ud83d\udcbc';
-const ICON_CORRUPTION = '\ud83e\udd1d';
-const ICON_TAX = '\ud83d\udcb8';
-const ICON_LOCK = '\ud83d\udd12';
-const ICON_START = '\ud83c\udfc1';
-const ICON_DETENTION = '\ud83d\udd0d';
-const ICON_REST = '\ud83c\udf75';
-const ICON_BRIBE_OFFICIAL = '\ud83c\udfdb\ufe0f';
 
 function gridPosition(index: number): { row: number; col: number } {
   if (index === 0) return { row: 11, col: 11 };
@@ -54,21 +47,6 @@ function groupColor(spaceId: string): string | null {
   if (isInfrastructureId(spaceId)) return '#6b7c99';
   if (isUtilityId(spaceId)) return '#D4AF37';
   return null;
-}
-
-function cornerIcon(spaceId: string): string {
-  switch (spaceId) {
-    case 'start':
-      return ICON_START;
-    case 'detention':
-      return ICON_DETENTION;
-    case 'rest':
-      return ICON_REST;
-    case 'bribe-official':
-      return ICON_BRIBE_OFFICIAL;
-    default:
-      return '';
-  }
 }
 
 function priceOf(spaceId: string): number | undefined {
@@ -126,7 +104,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
         style={gridStyle}
         title={space.kind === 'corner-bribe' ? t('bribeExplain', lang) : undefined}
       >
-        <span className="cell__icon">{cornerIcon(space.id)}</span>
+        <span className="cell__icon">{specialIconName(space) && <Icon name={specialIconName(space)!} />}</span>
         <span className="cell__name">{localized(label, lang)}</span>
       </div>
     );
@@ -163,10 +141,16 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
     <div className={cellClasses.join(' ')} style={cellStyle} title={space.kind === 'corruption' ? t('corruptionTip', lang) : undefined} onClick={() => onSelect(space.id)} role="button" tabIndex={0}>
       {bar && <div className="cell__bar" style={{ background: bar }} />}
       <div className="cell__body">
-        {space.kind === 'card-mahalla' && <span className="cell__icon">{ICON_CARD_MAHALLA}</span>}
-        {space.kind === 'card-business' && <span className="cell__icon">{ICON_CARD_BUSINESS}</span>}
-        {space.kind === 'tax' && <span className="cell__icon">{ICON_TAX}</span>}
-        {space.kind === 'corruption' && <span className="cell__icon">{ICON_CORRUPTION}</span>}
+        {specialIconName(space) && (
+          <span className="cell__icon">
+            <Icon name={specialIconName(space)!} />
+          </span>
+        )}
+        {assetIconName(space.id) && (
+          <span className="cell__icon">
+            <Icon name={assetIconName(space.id)!} />
+          </span>
+        )}
         {space.kind === 'corruption' && <span className="cell__price">{formatSom(CORRUPTION_TOLL_AMOUNT)}</span>}
         {devIcon && <span className="cell__icon">{devIcon}</span>}
         <span className="cell__name">{localized(label, lang)}</span>
@@ -182,7 +166,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
             className={`cell__lock ${isMortgageUrgent(state, space.id) ? 'lap-warn' : ''}`}
             title={`${mortgageLapsLeft(state, space.id) ?? ''} ${t('lapsToRedeem', lang)}`}
           >
-            {ICON_LOCK} {mortgageLapsLeft(state, space.id) ?? ''}
+            <Icon name="lock" /> {mortgageLapsLeft(state, space.id) ?? ''}
           </span>
         )}
       </div>

@@ -1,0 +1,181 @@
+/* ===========================================================================
+   Tycoon: O'zbekiston - DESIGN TOKENS (v1.2 "Look & Feel", Stage 1)
+
+   The single source of truth for colour, type, spacing, radii, shadows,
+   motion and layering. global.css only *uses* these; change a look here.
+
+   Direction: deep navy + turquoise + gold - Timurid majolica and modern
+   Tashkent glass towers. Uzbek geometric motifs (girih star, ikat diamond)
+   appear sparingly as texture, never behind body text at more than ~7%.
+
+   Fonts (bundled locally, see fonts.css; both cover Latin + Cyrillic +
+   the Uzbek letters):  Manrope (display)  /  Inter (text).
+   =========================================================================== */
+
+:root {
+  /* --- Colour: navy ramp (backgrounds) ------------------------------------ */
+  --navy-950: #070b16;
+  --navy-900: #0a0f1c;
+  --navy-850: #0e1526;
+  --navy-800: #121b30;
+  --navy-700: #1a2647;
+  --navy-600: #243459;
+  --navy-500: #34466f;
+
+  /* --- Colour: turquoise (majolica) ---------------------------------------- */
+  --turquoise-300: #7fd8d1;
+  --turquoise-400: #4cc7be;
+  --turquoise-500: #2fb8af;
+  --turquoise-600: #1f8f88;
+  --turquoise-700: #166a65;
+
+  /* --- Colour: gold (madrasah) ---------------------------------------------- */
+  --gold-200: #f6e3a8;
+  --gold-300: #f0d68c;
+  --gold-400: #e3c36a;
+  --gold-500: #d4af52;
+  --gold-600: #a9822f;
+  --gold-700: #7a5c1f;
+
+  /* --- Colour: cream text and ink on coloured fills ------------------------- */
+  --cream: #f2eee1;
+  --ink-on-turquoise: #04201e;
+  --ink-on-gold: #231a04;
+  --ink-on-success: #04200e;
+  --ink-on-danger: #fff4f5;
+  --ink-on-risk: #f6f0ff;
+
+  /* --- Colour: meaning ------------------------------------------------------ */
+  --success: #3fb56f;
+  --success-strong: #1f7a45;
+  --danger: #e0596b;
+  --danger-strong: #a33042;
+  --warning: #f0a13a;
+  --risk: #8b63cf;
+  --risk-strong: #5e3f96;
+  --rose: #d4536b;
+
+  /* --- Colour: aliases kept so older rules keep working ---------------------- */
+  --turquoise: var(--turquoise-500);
+  --turquoise-soft: var(--turquoise-300);
+  --gold: var(--gold-500);
+  --gold-soft: var(--gold-300);
+
+  /* --- Colour: text ----------------------------------------------------------- */
+  --text: var(--cream);
+  --text-muted: #9bacc4;
+  --text-faint: #7787a2;
+
+  /* --- Colour: surfaces (glass on navy) ------------------------------------- */
+  --bg: var(--navy-850);
+  --bg-alt: var(--navy-800);
+  --bg-deep: var(--navy-900);
+  --surface: rgba(255, 255, 255, 0.05);
+  --surface-strong: rgba(255, 255, 255, 0.085);
+  --surface-border: rgba(255, 255, 255, 0.11);
+  --surface-raised: #17223d;
+  --hairline-gold: rgba(212, 175, 82, 0.38);
+  --hairline-turquoise: rgba(47, 184, 175, 0.4);
+  --scrim: rgba(5, 9, 18, 0.72);
+
+  /* --- Colour: gradients -------------------------------------------------------- */
+  --grad-bg: radial-gradient(ellipse 120% 80% at 50% -10%, var(--navy-700) 0%, var(--bg) 55%);
+  --grad-primary: linear-gradient(160deg, var(--turquoise-400) 0%, var(--turquoise-600) 100%);
+  --grad-gold: linear-gradient(160deg, var(--gold-400) 0%, var(--gold-600) 100%);
+  --grad-danger: linear-gradient(160deg, var(--danger) 0%, var(--danger-strong) 100%);
+  --grad-success: linear-gradient(160deg, #4fcb83 0%, var(--success-strong) 100%);
+  --grad-risk: linear-gradient(160deg, var(--risk) 0%, var(--risk-strong) 100%);
+  --grad-gold-text: linear-gradient(135deg, var(--gold-200), var(--gold-500));
+  --grad-panel: linear-gradient(180deg, var(--surface-strong), var(--surface));
+
+  /* --- Type: families ---------------------------------------------------------- */
+  --font-display: 'Manrope Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-text: 'Inter Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font: var(--font-text);
+
+  /* --- Type: scale (rem; 1rem = 16px) ------------------------------------------ */
+  --fs-2xs: 0.6875rem; /* 11 */
+  --fs-xs: 0.75rem; /* 12 */
+  --fs-sm: 0.8125rem; /* 13 */
+  --fs-base: 0.9375rem; /* 15 */
+  --fs-md: 1.0625rem; /* 17 */
+  --fs-lg: 1.25rem; /* 20 */
+  --fs-xl: 1.5rem; /* 24 */
+  --fs-2xl: 1.875rem; /* 30 */
+  --fs-3xl: 2.375rem; /* 38 */
+
+  --lh-tight: 1.15;
+  --lh-snug: 1.3;
+  --lh-normal: 1.5;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+  --fw-extrabold: 800;
+
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+  --tracking-caps: 0.09em;
+
+  /* --- Spacing (4px base) ---------------------------------------------------------- */
+  --space-0: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 48px;
+  --space-9: 64px;
+
+  /* --- Radii -------------------------------------------------------------------------- */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 26px;
+  --radius-pill: 999px;
+
+  /* --- Shadows (elevation + glows) ---------------------------------------------------- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.55);
+  --shadow-deep: 0 24px 64px -20px rgba(0, 0, 0, 0.75);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  --shadow-inset-bottom: inset 0 -2px 0 rgba(0, 0, 0, 0.22);
+  --shadow-glow-gold: 0 0 0 1px var(--hairline-gold), 0 0 22px -4px rgba(212, 175, 82, 0.45);
+  --shadow-glow-turquoise: 0 0 0 1px var(--hairline-turquoise), 0 0 22px -4px rgba(47, 184, 175, 0.45);
+  --focus-ring: 0 0 0 2px var(--navy-900), 0 0 0 4px var(--gold-300);
+
+  /* --- Motion (animate transform + opacity only) --------------------------------------- */
+  --dur-instant: 80ms;
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 360ms;
+  --ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+
+  /* --- Layers ---------------------------------------------------------------------------- */
+  --z-board: 1;
+  --z-tokens: 10;
+  --z-floats: 30;
+  --z-modal: 50;
+  --z-toast: 1200;
+
+  /* --- Touch ----------------------------------------------------------------------------- */
+  --tap-min: 44px;
+
+  /* --- Icons: strokes use currentColor; .i-accent shapes take the gold --------------------- */
+  --icon-accent: var(--gold-400);
+
+  /* --- Uzbek geometric texture (used sparingly) --------------------------------------------
+     girih: an eight-pointed star tile; ikat: a diamond border strip. Both are original
+     inline SVG, so everything works offline. */
+  --pattern-girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23d4af52' stroke-opacity='.075' stroke-width='1'%3E%3Cpath d='M14 14h28v28H14z'/%3E%3Cpath d='M28 6l22 22-22 22L6 28z'/%3E%3Ccircle cx='28' cy='28' r='5'/%3E%3C/g%3E%3Cg fill='%232fb8af' fill-opacity='.07'%3E%3Cpath d='M0 0l4 0-4 4zM56 0v4l-4-4zM0 56v-4l4 4zM56 56h-4l4-4z'/%3E%3C/g%3E%3C/svg%3E");
+  --pattern-ikat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='10' viewBox='0 0 28 10'%3E%3Cpath d='M0 5l7-5 7 5-7 5z' fill='%23d4af52' fill-opacity='.85'/%3E%3Cpath d='M14 5l7-5 7 5-7 5z' fill='%232fb8af' fill-opacity='.85'/%3E%3Cpath d='M7 5l3.5-2.5L14 5l-3.5 2.5z M21 5l3.5-2.5L28 5l-3.5 2.5z' fill='%230a0f1c'/%3E%3C/svg%3E");
+
+  color-scheme: dark;
+}

@@ -1,8 +1,11 @@
+import type React from 'react';
 import { GROUPS, PROPERTIES, isPropertyId } from '../game/data/properties';
 import { canDevelop, costToReachNextLevel } from '../game/engine';
 import { t, localized } from '../i18n/strings';
 import { useActiveGame } from '../state/GameProvider';
 import CostButton from './CostButton';
+import Icon from './icons/Icon';
+import { groupIconName } from './icons/iconFor';
 
 export default function BuildModal({ actorId, onClose }: { actorId: string; onClose: () => void }) {
   const { state, dispatch } = useActiveGame();
@@ -26,10 +29,9 @@ export default function BuildModal({ actorId, onClose }: { actorId: string; onCl
               const level = state.ownership[id].level;
               return (
                 <div key={id} className="trade-item">
-                  <span
-                    style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, flexShrink: 0 }}
-                    aria-hidden="true"
-                  />
+                  <span className="group-dot" style={{ '--badge-color': group.color } as React.CSSProperties}>
+                    {groupIconName(group.id) && <Icon name={groupIconName(group.id)!} />}
+                  </span>
                   <span style={{ flex: 1 }}>
                     {localized(def, lang)}{' '}
                     <span className="text-muted">

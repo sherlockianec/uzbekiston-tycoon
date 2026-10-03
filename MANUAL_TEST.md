@@ -44,3 +44,11 @@ each box. Do it once on desktop and once on a phone (or a narrow browser window)
 5. Stand on an unowned, unaffordable property: press "Not now", take a loan in Bank, then press Buy in the action bar.
 6. Corner top-right is the Senior Official. Land on it: the bribe dialog opens; "Walk away" works; the Bribe button is not shown anywhere else.
 7. Get into debt (e.g. land on a big rent with little cash): "Raise money first" closes the dialog; Bank, Trade and Pay debt work; Declare Bankruptcy is optional until you choose it.
+
+
+## v1.2 Stage 1 checks (look and feel)
+1. Start, New Game, Rules and Game screens: navy background, gold title in a rounded display font, turquoise primary button, no emoji left on the board cells (icons instead).
+2. Click a property: a dialog opens with a coloured group badge and a thin diamond-pattern strip along its top edge.
+3. Tab through the screen with the keyboard: every button shows a gold focus ring.
+4. Switch all 4 languages on phone and desktop: no text pokes out of dialogs, buttons or panels. (Board tiles on a phone are still too small for long names - Stage 2.)
+5. Turn on your device's "reduce motion": dialogs and toasts appear without sliding.

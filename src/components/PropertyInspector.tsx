@@ -1,3 +1,4 @@
+import type React from 'react';
 import {
   PROPERTIES,
   INFRASTRUCTURE,
@@ -26,8 +27,8 @@ import { formatSom } from '../utils/currency';
 import { t, tf, localized } from '../i18n/strings';
 import { useActiveGame } from '../state/GameProvider';
 import CostButton from './CostButton';
-
-const ICON_LOCK = '\ud83d\udd12';
+import Icon from './icons/Icon';
+import { assetIconName, groupIconName } from './icons/iconFor';
 
 interface Props {
   spaceId: string;
@@ -71,7 +72,14 @@ export default function PropertyInspector({ spaceId, actorId, onClose, forceDeci
     <div className="modal-overlay" onClick={forceDecision ? undefined : onClose}>
       <div className="panel panel--gold-edge modal" onClick={(e) => e.stopPropagation()}>
         {group && <div className="property-color-bar" style={{ background: group.color }} />}
-        <h2>{localized(def, lang)}</h2>
+        <div className="modal-heading">
+          {(group ? groupIconName(group.id) : assetIconName(spaceId)) && (
+            <span className="group-badge" style={{ '--badge-color': group?.color ?? '#6b7c99' } as React.CSSProperties}>
+              <Icon name={(group ? groupIconName(group.id) : assetIconName(spaceId))!} />
+            </span>
+          )}
+          <h2>{localized(def, lang)}</h2>
+        </div>
         <div className="modal__sub">
           {group ? localized(group, lang) : isInfra ? t('infrastructureLabel', lang) : t('utilityLabel', lang)}
         </div>
@@ -102,7 +110,7 @@ export default function PropertyInspector({ spaceId, actorId, onClose, forceDeci
           <div className="modal__row">
             <span>{t('mortgaged', lang)}</span>
             <span className={isMortgageUrgent(state, spaceId) ? 'lap-warn' : ''}>
-              {ICON_LOCK} {mortgageLapsLeft(state, spaceId) ?? '?'} {t('lapsToRedeem', lang)}
+              <Icon name="lock" /> {mortgageLapsLeft(state, spaceId) ?? '?'} {t('lapsToRedeem', lang)}
             </span>
           </div>
         )}

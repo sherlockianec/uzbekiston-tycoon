@@ -211,3 +211,24 @@ Out of scope (explicitly rejected): Fast/Long modes, music, real logos, auctions
 
 ### Not done yet (from the v1.2 brief)
 The "Look & Feel" visual stages 1-5 (design system, 2.5D board, bust pawns, dice/cards/money feedback, polish) have NOT been started: they were queued behind these rule fixes, one stage at a time with screenshot feedback. Bot balance (Banker never wins, bots rarely build/trade, long games) is also untouched.
+
+
+---
+## 10. v1.2 "Look & Feel" - Stage 1 (design system) DONE
+Verified: `tsc` clean, `vitest` 241/241 in 19 files, `npm run build` OK, and - for the first time - **screenshots in a real headless Chromium** at 1280x720 and 390x844 in all 4 languages (start, new game, game, property dialog, Build, Bank) with an automatic text-overflow scan. Stages 2-5 are NOT started.
+
+**Where things live**
+- `src/styles/tokens.css` - the ONE place for colour ramps (navy / turquoise / gold), meaning colours, type scale, spacing, radii, shadows, motion, z-layers, and two Uzbek texture patterns (girih star, ikat strip; original inline SVG). `global.css` only consumes tokens.
+- `src/styles/fonts.css` - bundled fonts (no network): **Manrope** (display: titles, buttons, numbers) + **Inter** (text), variable weights, latin / latin-ext / cyrillic / cyrillic-ext subsets only (cyrillic-ext covers Uzbek qu, gh, h, w). Files come from `@fontsource-variable/*` (SIL OFL); ~280 KB in the build.
+- `src/components/icons/` - `Icon.tsx`, `paths.tsx` (24 original line icons: 8 property groups, 4 transport, 2 utilities, network stop, 2 card decks, corruption, Senior Official, Tax Inspection, START, Rest, Tax, lock), `iconFor.ts` (id -> icon). `.i-accent` shapes take gold `--icon-accent`.
+- Restyled: buttons (bevel, press, gold focus ring, 44px touch targets), panels, modals (spring-in, ikat strip, display-font headings), toasts, player cards (player-colour edge, gold glow when active), card face (girih texture). Icons are wired into board cells, the property dialog (group badge), Build and travel lists, "my properties".
+
+**Real bugs found by the first browser run and fixed (CSS only)**
+1. Desktop: board was taller than its area (top row cut, bottom row under the action bar). Board is now sized from its container (`container-type: size`, `width: min(100cqw, 100cqh)`).
+2. Phone: left panel, board and right panel all kept `grid-row: 1` and piled on top of each other. Fixed (`grid-row: auto` in the <=980px block); board first, action bar sticky and opaque, log capped.
+3. Start screen was top-aligned; language buttons touched the emblem; setup name box cut its placeholder on phones; `background-attachment: fixed` removed (janky on iOS).
+4. Data bug: Uzbek-Cyrillic "Chorsu choyxonasi" contained an ARABIC letter (U+062E) instead of Cyrillic h. Fixed; `tests/scripts.test.ts` now fails on any Arabic/Hebrew/Indic/Thai/CJK letter in `src/`.
+
+**Known, deliberately left for Stage 2 (board and tiles)**: on a phone each board tile is only ~31 px wide, so long names ("Налоговая инспекция", "Подоходный налог") cannot fit; prices wrap on desktop; "Business Opportunity" is truncated; pawns overlap tile text; dice are plain cream squares with no pips until a roll. The Stage 2 answer is bigger tiles + zoom/pan + a Flat/Tilted toggle.
+
+**How the screenshots were made** (repeat before reporting any later stage): `npm run build && npx vite preview --port 4173`, then Python Playwright with `executable_path='/opt/pw-browsers/chromium'`, `--no-sandbox`; a mid-game save (80 turns of AI play, 24 properties owned) is injected into `localStorage['uzbekiston-tycoon:save:v1']`, settings into `...:settings:v1`, and the page is overflow-scanned in JS (`scrollWidth > clientWidth` on non-ellipsis elements).

@@ -1,10 +1,13 @@
+import type React from 'react';
 import type { GameState, Player } from '../game/types';
 import { formatSom } from '../utils/currency';
 import { TOKEN_ICONS } from '../utils/tokenIcons';
-import { PROPERTIES, INFRASTRUCTURE, UTILITIES, isPropertyId, isInfrastructureId } from '../game/data/properties';
+import { GROUPS, PROPERTIES, INFRASTRUCTURE, UTILITIES, isPropertyId, isInfrastructureId } from '../game/data/properties';
 import { t, localized } from '../i18n/strings';
 import { isMortgageUrgent, mortgageLapsLeft } from '../game/engine';
 import MoneyFloats from './MoneyFloats';
+import Icon from './icons/Icon';
+import { assetIconName, groupIconName } from './icons/iconFor';
 
 export function PlayerList({ state }: { state: GameState }) {
   return (
@@ -24,7 +27,7 @@ function PlayerCard({ player, isActive, state }: { player: Player; isActive: boo
   if (player.bankrupt) classes.push('player-card--bankrupt');
 
   return (
-    <div className={classes.join(' ')}>
+    <div className={classes.join(' ')} style={{ '--player-color': player.tokenColor } as React.CSSProperties}>
       <div className="player-card__head">
         <span className="player-card__token" style={{ background: player.tokenColor }}>
           {TOKEN_ICONS[player.tokenShape]}
@@ -69,13 +72,23 @@ export function MyProperties({
         const def = isPropertyId(id) ? PROPERTIES[id] : isInfrastructureId(id) ? INFRASTRUCTURE[id] : UTILITIES[id];
         return (
           <div key={id} className="trade-item" onClick={() => onSelectSpace(id)} style={{ marginBottom: 6 }}>
+            {(() => {
+              const groupId = isPropertyId(id) ? PROPERTIES[id].groupId : null;
+              const icon = groupId ? groupIconName(groupId) : assetIconName(id);
+              const color = groupId ? GROUPS.find((g) => g.id === groupId)?.color : '#6b7c99';
+              return icon ? (
+                <span className="group-dot" style={{ '--badge-color': color } as React.CSSProperties}>
+                  <Icon name={icon} />
+                </span>
+              ) : null;
+            })()}
             <span style={{ flex: 1 }}>{localized(def, lang)}</span>
             {o.mortgaged && (
               <span
                 className={isMortgageUrgent(state, id) ? 'lap-warn' : ''}
                 title={`${mortgageLapsLeft(state, id) ?? ''} ${t('lapsToRedeem', lang)}`}
               >
-                {'\ud83d\udd12'} {mortgageLapsLeft(state, id) ?? ''}
+                <Icon name="lock" /> {mortgageLapsLeft(state, id) ?? ''}
               </span>
             )}
           </div>

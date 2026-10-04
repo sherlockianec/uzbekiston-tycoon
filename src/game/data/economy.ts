@@ -8,7 +8,7 @@
 export const CURRENCY_SUFFIX = "so'm";
 
 export const STARTING_CASH = 15_000_000;
-export const GO_SALARY = 1_500_000;
+export const GO_SALARY = 1_200_000; // 8% of starting cash (reference fast play)
 
 // Detention ("Tax Inspection"): buyout cost decreases the longer you wait,
 // so paying immediately is a real choice, not just the only rational one.
@@ -68,7 +68,10 @@ export function randomBribeAmount(min: number, max: number, roll: number): numbe
 
 // Rent multipliers relative to a property's base rent:
 // [base, fullSetUnimproved, level1, level2, level3, level4, level5]
-const RENT_MULTIPLIERS = [1, 2, 4, 9, 20, 35, 55] as const;
+// Calibrated against the reference game's ratios (rent/price): base 10%, full set 20%,
+// top level 500% of the price. The middle levels are interpolated. [inferred]
+export const BASE_RENT_PERCENT_OF_PRICE = 10;
+const RENT_MULTIPLIERS = [1, 2, 4, 9, 20, 35, 50] as const;
 
 function roundToThousand(n: number): number {
   return Math.round(n / 1000) * 1000;
@@ -77,7 +80,7 @@ function roundToThousand(n: number): number {
 export function buildRentTable(
   price: number
 ): [number, number, number, number, number, number, number] {
-  const base = roundToThousand(price * 0.07);
+  const base = roundToThousand(price * (BASE_RENT_PERCENT_OF_PRICE / 100));
   return RENT_MULTIPLIERS.map((m) => roundToThousand(base * m)) as [
     number,
     number,

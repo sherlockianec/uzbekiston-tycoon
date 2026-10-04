@@ -88,7 +88,7 @@ export default function ActionBar({
     !state.networkTravelUsed &&
     here?.kind === 'infrastructure' &&
     !!state.ownership[here.id]?.ownerId;
-  const canBribe = isLocalHumanActing && here?.kind === 'corner-bribe' && !state.bribeGambleUsedThisTurn;
+  const canBribe = isLocalHumanActing && state.hasRolledThisTurn && here?.kind === 'corner-bribe' && !state.bribeGambleUsedThisTurn;
 
   return (
     <div className={`action-bar action-bar--${variant}${variant === 'bar' ? ' panel' : ''}`}>

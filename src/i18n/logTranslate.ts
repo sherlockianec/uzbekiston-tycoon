@@ -6,6 +6,7 @@ import { DEVELOPMENT_LEVEL_NAMES } from '../game/data/economy';
 import { localized } from './strings';
 import { cardTitle, devLevelName } from './content';
 import { latinToCyrillic } from './translit';
+import { localizeNamesInText } from './names';
 
 /**
  * The engine writes its game log in English (it is stored in saves and must stay stable).
@@ -118,6 +119,10 @@ const ENTITY_KEYS = new Set(['item', 'card', 'level', 'tax']);
 
 /** Returns the line in `lang`, or the original English line when no pattern recognises it. */
 export function translateLog(text: string, lang: Language): string {
+  return localizeNamesInText(translateLogLines(text, lang), lang);
+}
+
+function translateLogLines(text: string, lang: Language): string {
   if (lang === 'en') return text;
   for (const pat of PATTERNS) {
     const m = pat.re.exec(text);

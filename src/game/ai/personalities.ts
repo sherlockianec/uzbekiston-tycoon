@@ -25,9 +25,9 @@ export const PERSONALITIES: Record<PersonalityId, PersonalityTraits> = {
     labelUz: 'Ehtiyotkor investor',
     description: 'Rarely buys overpriced property, saves cash, builds monopolies carefully.',
     descriptionUz: "Qimmat mulkni kamdan-kam sotib oladi, pulni tejaydi, ehtiyotkorlik bilan rivojlanadi.",
-    buyThreshold: 0.5,
-    cashReserve: 4_000_000,
-    developAggressiveness: 0.4,
+    buyThreshold: 0.65,
+    cashReserve: 3_000_000,
+    developAggressiveness: 0.6,
     tradeWillingness: 0.3,
     chaos: 0.1,
   },
@@ -61,9 +61,9 @@ export const PERSONALITIES: Record<PersonalityId, PersonalityTraits> = {
     labelUz: 'Bankir',
     description: 'Keeps large cash reserves and buys only strategically.',
     descriptionUz: "Katta pul zaxirasini saqlaydi va faqat strategik xarid qiladi.",
-    buyThreshold: 0.4,
-    cashReserve: 6_000_000,
-    developAggressiveness: 0.3,
+    buyThreshold: 0.6,
+    cashReserve: 3_500_000,
+    developAggressiveness: 0.6,
     tradeWillingness: 0.4,
     chaos: 0.1,
   },
@@ -87,12 +87,16 @@ export const DIFFICULTY_LABELS: Record<Difficulty, { label: string; labelUz: str
   hard: { label: 'Hard', labelUz: 'Qiyin' },
 };
 
-const AI_FIRST_NAMES = [
-  'Aziz', 'Dilnoza', 'Botir', 'Sherzod', 'Malika', 'Jasur', 'Nodira', 'Farrux', 'Gulnora', 'Rustam', 'Zarina', 'Kamron',
-];
+/** 30 Uzbek first names (Latin spelling is what is stored; the UI shows Cyrillic forms in ru / uz-cyrl). */
+export const AI_FIRST_NAMES = [
+  'Aziz', 'Dilnoza', 'Botir', 'Sherzod', 'Malika', 'Jasur', 'Nodira', 'Farrux', 'Gulnora', 'Rustam',
+  'Zarina', 'Kamron', 'Ulugbek', 'Madina', 'Otabek', 'Sevara', 'Bobur', 'Lola', 'Timur', 'Nigora',
+  'Akmal', 'Feruza', 'Sardor', 'Shahlo', 'Doniyor', 'Munisa', 'Javlon', 'Dildora', 'Eldor', 'Laylo',
+] as const;
 
-export function pickAiName(index: number, takenNames: string[]): string {
+/** A random free name. `rand` is injectable so tests stay deterministic. */
+export function pickAiName(_index: number, takenNames: string[], rand: () => number = Math.random): string {
   const available = AI_FIRST_NAMES.filter((n) => !takenNames.includes(n));
   const pool = available.length ? available : AI_FIRST_NAMES;
-  return pool[index % pool.length];
+  return pool[Math.floor(rand() * pool.length)];
 }

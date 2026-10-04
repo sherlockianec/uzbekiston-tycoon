@@ -58,7 +58,10 @@ function validateTradeOffer(state: GameState, offer: Omit<TradeOffer, 'id'>): bo
   const toP = state.players.find((p) => p.id === offer.toId);
   if (!fromP || !toP || fromP.bankrupt || toP.bankrupt) return false;
   if (offer.offerCash < 0 || offer.requestCash < 0) return false;
-  if (fromP.cash < offer.offerCash || toP.cash < offer.requestCash) return false;
+  // Only check cash that actually changes hands: a player already below zero can still
+  // trade properties for money (offerCash 0), which is exactly how they climb out of debt.
+  if (offer.offerCash > 0 && fromP.cash < offer.offerCash) return false;
+  if (offer.requestCash > 0 && toP.cash < offer.requestCash) return false;
   if (fromP.releasePapers < offer.offerReleasePapers) return false;
   if (toP.releasePapers < offer.requestReleasePapers) return false;
   for (const id of offer.offerPropertyIds) {
@@ -273,6 +276,8 @@ export function applyCommand(
 
     case 'ATTEMPT_BRIBE': {
       if (!isCurrent || state.phase !== 'AWAITING_ROLL' || state.bribeGambleUsedThisTurn) return noop(state);
+      // Only on the turn you ENDED A MOVE on the cell: standing there at the start of a later turn gives no gamble.
+      if (!state.hasRolledThisTurn) return noop(state);
       // Only possible while standing on the Senior Official cell.
       if (BOARD[acting.position].kind !== 'corner-bribe') return noop(state);
       return attemptBribe(state, acting.id, rng);

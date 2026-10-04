@@ -265,3 +265,16 @@ Save format is now **SAVE_VERSION 4** (old saves are rejected with the existing 
 - **Game log translated** at display time: src/i18n/logTranslate.ts (regex -> uz/ru templates; uz-cyrl derived from uz). Engine log stays English (stored in saves). tests/log-translate.test.ts plays bot games and fails on any untranslated line: when you add a log line in the engine, add a pattern.
 - Save format: no new required fields (lastTradeResult/tradeRejections optional); old v3 saves still load.
 - Known: Uzbek/Russian log wording is unreviewed by a native speaker. Visual stages 3-5 and bot balance (Banker) still open.
+
+---
+## v1.2 batch 4
+- **Trade while in debt**: `validateTradeOffer` (engine/index.ts) now only checks cash that actually moves (offerCash/requestCash > 0). Before, a player with negative cash was rejected even when offering 0 cash.
+- **Trade window** (TradeModal.tsx): slider value = -net; drag LEFT = you give cash, RIGHT = you ask cash. Track: green = your money kept, gold = part moving across, red = their money. Buttons "Give +500 000" (left) / "Ask +500 000" (right), "Equalize" sets cash so list prices balance. Multi-property selection both ways works (checkboxes). Receiver window (TradeReview) says who offers, what you GET / GIVE, and your balance at list prices.
+- **Bots sell dearly**: ask = price x (2.0 + 1.0 per piece you hold; set-completing 6+; x1.25 per piece they hold themselves), discounted only when desperate; accept needs ratio >= 0.96-1.0.
+- **Bot proposals**: 1-for-1, 2-for-1, 1-for-2, 2-for-2 swaps (spare lone pieces + cash). Guard: offered cash + offered property prices >= requested property prices (never a loss for the receiver at list prices).
+- **Bot names**: 30 Uzbek names, random pick (`pickAiName`, personalities.ts). Stored Latin; shown Cyrillic in ru/uz-cyrl via `withLocalBotNames` (useActiveGame) and `localizeNamesInText` (log). src/i18n/names.ts.
+- **Senior Official**: the gamble exists ONLY on the turn you end a move on the cell (engine requires `hasRolledThisTurn`; UI button/prompt and bot logic match). Standing there at the start of a later turn gives no gamble. (An earlier batch-4 draft wrongly allowed it; reverted.)
+- **Economy recalibrated to reference ratios**: base rent 10% of price (was 7%), top level 500% (multipliers [1,2,4,9,20,35,50]), salary 1 200 000 (8% of start cash). Build cost 50%/100%, mortgage 50%/100%+6 laps, loan 30% were already reference-like. Bots: Banker/Conservative made less passive (they never won). 60 bot games: median 220 turns (was 281), wins spread 16/13/11/10/10. `SIM=60 npx vitest run tests/sim.manual.test.ts` prints the balance report; keep it as a permanent tool.
+- Not done: reference-style Fast/Long modes (rejected earlier), per-player trade cooldown, sim for human-style play.
+
+- **Trade refusal naming**: `lastTradeResult` now stores `toId` and the refused `offer`; the proposer's window reopens on the person who REALLY refused with the same pieces and cash. A human refusal says 'X rejected your offer' (no ratio); a bot's refusal adds the far/not-enough/close hint.

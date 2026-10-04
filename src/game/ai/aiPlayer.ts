@@ -168,7 +168,12 @@ export function tradeAskPrice(state: GameState, ownerId: string, requesterId: st
   const members = groupMembers(spaceId);
   const held = members.filter((id) => state.ownership[id]?.ownerId === requesterId).length + alsoGetting;
   const completes = held + 1 >= members.length && members.length > 1;
-  let mult = completes ? 4.2 + 0.4 * held : 1.35 + 0.9 * held;
+  // Bots do NOT sell cheaply: even a lone piece costs about double, each piece of the same
+  // business the requester holds adds a full price, and completing a set costs a fortune.
+  let mult = completes ? 6 + 0.5 * held : 2.0 + 1.0 * held;
+  // A bot that already holds other pieces of this business values the synergy.
+  const ownerHolds = members.filter((id) => id !== spaceId && state.ownership[id]?.ownerId === ownerId).length;
+  if (members.length > 1 && ownerHolds > 0) mult *= 1 + 0.25 * ownerHolds;
   if (members.length > 1 && members.every((id) => state.ownership[id]?.ownerId === ownerId)) mult *= 1.5; // breaking their own monopoly
   mult *= Math.max(0.5, 1 - financialPressure(state, ownerId)); // desperate sellers take less
   const owner = getPlayer(state, ownerId);
@@ -211,7 +216,7 @@ export function evaluateTradeDetail(state: GameState, player: Player, traits: Pe
   const ratio = requiredValue <= 0 ? 99 : offeredValue / requiredValue;
   const afterCash = player.cash - trade.requestCash + trade.offerCash;
   if (afterCash < 0) return { accept: false, ratio };
-  const discount = 1 - 0.1 * traits.tradeWillingness;
+  const discount = 1 - 0.04 * traits.tradeWillingness;
   return { accept: ratio >= discount, ratio };
 }
 
@@ -290,13 +295,22 @@ export function pickTradeProposal(
       .filter(([id, o]) => o.ownerId === player.id && isPropertyId(id) && o.level === 0 && !o.mortgaged && !group.propertyIds.includes(id))
       .filter(([id]) => groupMembers(id).filter((m) => state.ownership[m].ownerId === player.id).length === 1)
       .map(([id]) => id)
-      .sort((a, b) => PROPERTIES[a].price - PROPERTIES[b].price)
-      .slice(0, missing.length);
-    const spareValue = spares.reduce((sum, id) => sum + PROPERTIES[id].price, 0);
-    const useSwap = spares.length === missing.length && spareValue <= value && rng() < 0.5;
-
-    const offerCash = Math.round(Math.max(0, value - (useSwap ? spareValue : 0)) / 1000) * 1000;
+      .sort((a, b) => PROPERTIES[a].price - PROPERTIES[b].price);
+    // 1-for-1, 2-for-1, 1-for-2, 2-for-2 ...: try a random number of spares (0..2) that fits in the budget.
+    const wanted = Math.floor(rng() * (Math.min(2, spares.length) + 1));
+    let swap: string[] = [];
+    for (let k = wanted; k >= 1; k--) {
+      const pick = spares.slice(0, k);
+      if (pick.reduce((sum, id) => sum + PROPERTIES[id].price, 0) <= value) {
+        swap = pick;
+        break;
+      }
+    }
+    const spareValue = swap.reduce((sum, id) => sum + PROPERTIES[id].price, 0);
+    const offerCash = Math.round(Math.max(0, value - spareValue) / 1000) * 1000;
     if (player.cash - offerCash < traits.cashReserve * 0.3) continue;
+    // Never make an offer that leaves the other side in the minus at list prices.
+    if (offerCash + spareValue < sumPrice) continue;
 
     return {
       type: 'PROPOSE_TRADE',
@@ -304,7 +318,7 @@ export function pickTradeProposal(
         fromId: player.id,
         toId: ownerPlayer.id,
         offerCash,
-        offerPropertyIds: useSwap ? spares : [],
+        offerPropertyIds: swap,
         offerReleasePapers: 0,
         requestCash: 0,
         requestPropertyIds: missing,
@@ -373,7 +387,7 @@ export function pickBribe(
 ): GameCommand | null {
   if (traits.chaos < 0.5) return null;
   if (BOARD[player.position]?.kind !== 'corner-bribe') return null;
-  if (state.bribeGambleUsedThisTurn || player.inDetention || player.loan) return null;
+  if (!state.hasRolledThisTurn || state.bribeGambleUsedThisTurn || player.inDetention || player.loan) return null;
   if (player.cash < BRIBE_GAMBLE_LOSS_MAX + traits.cashReserve) return null;
   const chance = traits.chaos * 0.5 * (difficulty === 'easy' ? 0.5 : 1);
   return rng() < chance ? { type: 'ATTEMPT_BRIBE' } : null;

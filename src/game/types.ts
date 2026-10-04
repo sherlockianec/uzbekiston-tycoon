@@ -203,6 +203,8 @@ export interface TradeResult {
   accepted: boolean;
   /** offered value / required value as the answering bot saw it (declines only). */
   ratio?: number;
+  /** The refused offer, so the proposer's window can be re-opened with it for adjusting. */
+  offer?: Pick<TradeOffer, 'offerCash' | 'offerPropertyIds' | 'requestCash' | 'requestPropertyIds'>;
 }
 
 export interface BribeResult {

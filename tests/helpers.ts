@@ -31,6 +31,7 @@ export function floatRng(floats: number[]): Rng {
 }
 
 /** Puts every player on the Senior Official (bribe) corner, index 20. */
+/** Everyone stands on the Senior Official cell, as if the current player just ended a move there. */
 export function atOfficial(s: GameState): GameState {
-  return { ...s, players: s.players.map((p) => ({ ...p, position: 20 })) };
+  return { ...s, hasRolledThisTurn: true, players: s.players.map((p) => ({ ...p, position: 20 })) };
 }

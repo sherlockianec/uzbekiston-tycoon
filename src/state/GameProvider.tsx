@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { withLocalBotNames } from '../i18n/names';
 import type { GameCommand, GameState, NewGameConfig, Settings } from '../game/types';
 import { applyCommand, createNewGame, createRng } from '../game/engine';
 import type { Rng } from '../game/engine/random';
@@ -45,7 +46,11 @@ export function useGame(): GameContextValue {
 export function useActiveGame(): Omit<GameContextValue, 'state'> & { state: GameState } {
   const ctx = useGame();
   if (!ctx.state) throw new Error('useActiveGame used with no active game');
-  return { ...ctx, state: ctx.state };
+  const raw = ctx.state;
+  const lang = raw.settings.language;
+  // Bots keep their stored Latin names; they are only SHOWN in the player's alphabet.
+  const state = useMemo(() => withLocalBotNames(raw, lang), [raw, lang]);
+  return { ...ctx, state };
 }
 
 /** Money floats for one player (empty outside the provider, e.g. in tests). */

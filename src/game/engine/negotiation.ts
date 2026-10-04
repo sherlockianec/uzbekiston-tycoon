@@ -37,7 +37,7 @@ export function respondTrade(state: GameState, accept: boolean, ratio?: number):
       rej[key] = (rej[key] ?? 0) + 1;
       next = { ...next, tradeRejections: rej };
     }
-    next = { ...next, lastTradeResult: { nonce: Date.now(), fromId: trade.fromId, toId: trade.toId, accepted: false, ratio } };
+    next = { ...next, lastTradeResult: { nonce: Date.now(), fromId: trade.fromId, toId: trade.toId, accepted: false, ratio, offer: { offerCash: trade.offerCash, offerPropertyIds: trade.offerPropertyIds, requestCash: trade.requestCash, requestPropertyIds: trade.requestPropertyIds } } };
     return afterTrade(next);
   }
 

@@ -64,7 +64,7 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     wasNegativeRef.current = negativeBalance;
   }, [negativeBalance]);
 
-  // Standing on the Senior Official cell: offer the (optional) bribe once per landing.
+  // Ending a move on the Senior Official cell: offer the (optional) bribe once per landing.
   const bribePromptedRef = useRef<string | null>(null);
   const onBribeCell = BOARD[actor.position]?.kind === 'corner-bribe';
   const landingKey = `${state.turnNumber}:${actor.position}:${state.dice ? state.dice.join('-') : ''}`;

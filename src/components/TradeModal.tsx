@@ -23,25 +23,37 @@ function TradeReview({ trade, actorId }: { trade: TradeOffer; actorId: string })
   const { state, dispatch } = useActiveGame();
   const lang = state.settings.language;
   const proposer = state.players.find((p) => p.id === trade.fromId);
+  const me = state.players.find((p) => p.id === actorId);
+  const price = (ids: string[]) => ids.reduce((sum, id) => sum + ownableDef(id).price, 0);
+  // From MY side: what I receive minus what I hand over, at list prices.
+  const balance = price(trade.offerPropertyIds) + trade.offerCash - price(trade.requestPropertyIds) - trade.requestCash;
 
   return (
     <div className="modal-overlay">
-      <div className="panel panel--gold-edge modal modal--wide">
-        <h2>
-          {t('trade', lang)} {'\u2014'} {proposer?.name}
-        </h2>
+      <div className="panel panel--gold-edge modal modal--wide" role="dialog" aria-label={t('trade', lang)}>
+        <h2>{tf('tradeOfferFrom', lang, { name: proposer?.name ?? '' })}</h2>
+        <p className="trade-banner" role="status">
+          {tf('tradeOfferQuestion', lang, { from: proposer?.name ?? '', to: me?.name ?? '' })}
+        </p>
         <div className="trade-columns">
-          <div>
-            <h4>{t('theyOffer', lang)}</h4>
+          <div className="trade-side trade-side--get">
+            <h4>{tf('tradeYouWouldGet', lang, { name: me?.name ?? '' })}</h4>
             <TradeSideSummary cash={trade.offerCash} propertyIds={trade.offerPropertyIds} papers={trade.offerReleasePapers} lang={lang} />
           </div>
-          <div>
-            <h4>{t('theyWant', lang)}</h4>
+          <div className="trade-side trade-side--give">
+            <h4>{tf('tradeYouWouldGive', lang, { name: me?.name ?? '' })}</h4>
             <TradeSideSummary cash={trade.requestCash} propertyIds={trade.requestPropertyIds} papers={trade.requestReleasePapers} lang={lang} />
           </div>
         </div>
+        <div className={`trade-balance ${balance < 0 ? 'trade-balance--neg' : balance > 0 ? 'trade-balance--pos' : ''}`}>
+          <span>{t('tradeYourBalance', lang)}</span>
+          <strong className="money">
+            {balance > 0 ? '+' : balance < 0 ? '\u2212' : ''}
+            {formatSom(Math.abs(balance))}
+          </strong>
+        </div>
         <div className="modal__actions">
-          <button className="btn" onClick={() => dispatch({ type: 'RESPOND_TRADE', accept: false }, actorId)}>
+          <button className="btn btn--danger" onClick={() => dispatch({ type: 'RESPOND_TRADE', accept: false }, actorId)}>
             {t('reject', lang)}
           </button>
           <button className="btn btn--primary" onClick={() => dispatch({ type: 'RESPOND_TRADE', accept: true }, actorId)}>
@@ -76,15 +88,21 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
   const human = state.players.find((p) => p.id === actorId)!;
   const opponents = state.players.filter((p) => p.id !== actorId && !p.bankrupt);
 
-  const [targetId, setTargetId] = useState(opponents[0]?.id ?? '');
+  // After a refusal this window is rebuilt (the other player's review window took its place),
+  // so start from the refused offer: same person, same pieces, same cash - ready to adjust.
+  const last = state.lastTradeResult;
+  const refused = !!last && !last.accepted && last.fromId === actorId ? last : null;
+  const [targetId, setTargetId] = useState(refused?.toId ?? opponents[0]?.id ?? '');
   // One signed number: > 0 means YOU pay that cash, < 0 means THEY pay it.
-  const [net, setNet] = useState(0);
-  const [offerProps, setOfferProps] = useState<Set<string>>(new Set());
-  const [requestProps, setRequestProps] = useState<Set<string>>(new Set());
+  const [net, setNet] = useState(refused?.offer ? refused.offer.offerCash - refused.offer.requestCash : 0);
+  const [offerProps, setOfferProps] = useState<Set<string>>(new Set(refused?.offer?.offerPropertyIds ?? []));
+  const [requestProps, setRequestProps] = useState<Set<string>>(new Set(refused?.offer?.requestPropertyIds ?? []));
 
   const target = state.players.find((p) => p.id === targetId);
   const result = state.lastTradeResult;
   const declined = !!result && !result.accepted && result.fromId === actorId && !pending;
+  // The refusal banner names whoever REALLY refused, not whoever is selected in the list now.
+  const refuser = declined && result ? state.players.find((p) => p.id === result.toId) : undefined;
 
   if (!target) {
     return (
@@ -125,8 +143,13 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
   const balance = sumPrice(requestProps) + requestCash - sumPrice(offerProps) - offerCash;
 
   const span = maxGive + maxGet || 1;
-  const fillPct = ((net + maxGet) / span) * 100;
-  const zeroPct = (maxGet / span) * 100;
+  // Slider value v = -net: dragging LEFT (v < 0) means you GIVE cash, RIGHT means you ASK for cash.
+  const thumbPct = ((-net + maxGive) / span) * 100;
+  const zeroPct = (maxGive / span) * 100;
+  const segA = Math.min(thumbPct, zeroPct);
+  const segB = Math.max(thumbPct, zeroPct);
+  const propsDiff = sumPrice(requestProps) - sumPrice(offerProps); // > 0: you get more property than you give
+
 
   function submit() {
     dispatch(
@@ -150,9 +173,11 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
   const nothingChosen = offerCash === 0 && requestCash === 0 && offerProps.size === 0 && requestProps.size === 0;
   const hintKey: StringKey | null =
     declined && result
-      ? (result.ratio ?? 0) >= 0.85
+      ? result.ratio === undefined
+        ? 'tradeDeclinedPlain'
+        : result.ratio >= 0.85
         ? 'tradeDeclinedClose'
-        : (result.ratio ?? 0) >= 0.5
+        : result.ratio >= 0.5
           ? 'tradeDeclinedMore'
           : 'tradeDeclinedFar'
       : null;
@@ -169,7 +194,7 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
         )}
         {hintKey && (
           <p className="trade-banner trade-banner--no" role="alert">
-            {tf(hintKey, lang, { name: target.name })}
+            {tf(hintKey, lang, { name: refuser?.name ?? target.name })}
           </p>
         )}
 
@@ -221,29 +246,34 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
 
           <div className="trade-money">
             <div className="trade-money__ends">
-              <span>
-                <strong>{target.name}</strong>
-                <span className="money text-sm"> {formatSom(target.cash)}</span>
-              </span>
-              <span style={{ textAlign: 'right' }}>
+              <span className="trade-money__mine">
                 <strong>{human.name}</strong>
                 <span className="money text-sm"> {formatSom(human.cash)}</span>
+              </span>
+              <span className="trade-money__theirs" style={{ textAlign: 'right' }}>
+                <strong>{target.name}</strong>
+                <span className="money text-sm"> {formatSom(target.cash)}</span>
               </span>
             </div>
             <input
               type="range"
               className="trade-slider"
               aria-label={t('tradeCashSlider', lang)}
-              min={-maxGet}
-              max={maxGive}
+              min={-maxGive}
+              max={maxGet}
               step={CASH_STEP}
-              value={net}
-              onChange={(e) => setNet(clampNet(Number(e.target.value)))}
-              style={{ '--fill': `${fillPct}%`, '--zero': `${zeroPct}%` } as React.CSSProperties}
+              disabled={span <= 1}
+              value={-net}
+              onChange={(e) => setNet(clampNet(-Number(e.target.value)))}
+              style={{ '--a': `${segA}%`, '--b': `${segB}%` } as React.CSSProperties}
             />
+            <div className="trade-money__legend">
+              <span>{'\u25c0'} {t('tradeDragGive', lang)}</span>
+              <span>{t('tradeDragAsk', lang)} {'\u25b6'}</span>
+            </div>
             <div className="trade-money__row">
-              <button className="btn btn--sm" onClick={() => setNet((n) => clampNet(n - CASH_JUMP))} aria-label={tf('tradeLess', lang, { amount: formatSom(CASH_JUMP) })}>
-                {'\u2212'} {formatSom(CASH_JUMP)}
+              <button className="btn btn--sm" onClick={() => setNet((n) => clampNet(n + CASH_JUMP))} aria-label={tf('tradeGiveMore', lang, { amount: formatSom(CASH_JUMP) })}>
+                {'\u25c0'} {tf('tradeGiveMore', lang, { amount: formatSom(CASH_JUMP) })}
               </button>
               <div className={`trade-money__now ${net > 0 ? 'money--negative' : net < 0 ? 'money--positive' : ''}`} aria-live="polite">
                 {net > 0
@@ -252,10 +282,13 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
                     ? tf('tradeYouGet', lang, { amount: formatSom(-net) })
                     : t('tradeNoCash', lang)}
               </div>
-              <button className="btn btn--sm" onClick={() => setNet((n) => clampNet(n + CASH_JUMP))} aria-label={tf('tradeMore', lang, { amount: formatSom(CASH_JUMP) })}>
-                + {formatSom(CASH_JUMP)}
+              <button className="btn btn--sm" onClick={() => setNet((n) => clampNet(n - CASH_JUMP))} aria-label={tf('tradeAskMore', lang, { amount: formatSom(CASH_JUMP) })}>
+                {tf('tradeAskMore', lang, { amount: formatSom(CASH_JUMP) })} {'\u25b6'}
               </button>
             </div>
+            <button className="btn btn--sm trade-equalize" onClick={() => setNet(clampNet(propsDiff))} disabled={propsDiff === 0 && net === 0}>
+              {t('tradeEqualize', lang)}
+            </button>
           </div>
 
           <div className={`trade-balance ${balance < 0 ? 'trade-balance--neg' : balance > 0 ? 'trade-balance--pos' : ''}`} aria-live="polite">

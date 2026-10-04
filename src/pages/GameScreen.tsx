@@ -9,6 +9,7 @@ import GameLog from '../components/GameLog';
 import PropertyInspector from '../components/PropertyInspector';
 import CardModal from '../components/CardModal';
 import TradeModal from '../components/TradeModal';
+import SidePanel from '../components/SidePanel';
 import NegativeBalanceModal from '../components/NegativeBalanceModal';
 import BuildModal from '../components/BuildModal';
 import BankModal from '../components/BankModal';
@@ -80,11 +81,12 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     const tradeOpen = overlay === 'trade';
     if (tradeOpen && state.trade) sawTradeRef.current = true;
     else if (tradeOpen && !state.trade && sawTradeRef.current) {
-      setOverlay('none');
+      // A refusal keeps the window open so the offer can be adjusted; an accepted deal or a withdrawal closes it.
+      if (!state.lastTradeResult || state.lastTradeResult.accepted) setOverlay('none');
       sawTradeRef.current = false;
     }
     if (!tradeOpen) sawTradeRef.current = false;
-  }, [state.trade, overlay]);
+  }, [state.trade, state.lastTradeResult, overlay]);
 
   // Lightweight sound cues driven off the newest log line.
   const play = useSound(state.settings.sound);
@@ -146,6 +148,7 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
       onOpenSettings={() => setOverlay('settings')}
       onQuit={handleQuit}
       showActions={!narrow}
+      sidebar={!narrow}
     />
   );
 
@@ -154,6 +157,15 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
       <div className="game-screen__board" ref={scrollRef}>
         <Board state={state} onSelectSpace={handleSelectSpace} centre={centre} fixedWidth={narrow ? PHONE_BOARD_WIDTH * zoom : undefined} />
       </div>
+
+      {!narrow && (
+        <SidePanel
+          onOpenProperties={() => setOverlay('properties')}
+          onOpenLog={() => setOverlay('log')}
+          onOpenSettings={() => setOverlay('settings')}
+          onQuit={handleQuit}
+        />
+      )}
 
       {narrow && (
         <>

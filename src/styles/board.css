@@ -9,10 +9,10 @@
 .game-screen {
   height: 100vh;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(250px, 21vw, 330px);
   padding: 6px;
-  gap: 6px;
+  gap: 8px;
 }
 .game-screen__board {
   flex: 1;
@@ -24,12 +24,12 @@
   container-type: size;
 }
 .board-wrap {
-  --board-ratio: 1.7;
+  --board-ratio: 1.4;
   --token-size: clamp(22px, 3.1cqw, 46px);
   position: relative;
-  /* the largest 1.7:1 rectangle that fits the space it is given */
-  width: min(100cqw, calc(100cqh * 1.7));
-  height: min(100cqh, calc(100cqw / 1.7));
+  /* the largest 1.4:1 rectangle that fits the space it is given */
+  width: min(100cqw, calc(100cqh * 1.4));
+  height: min(100cqh, calc(100cqw / 1.4));
   flex-shrink: 0;
   container-type: size;
 }
@@ -111,13 +111,19 @@
   gap: 0.2cqw;
 }
 .cell--flat .cell__name {
-  font-size: 1.1cqw;
+  font-size: 1.4cqw;
 }
 .cell--flat .cell__name--mid {
-  font-size: 1.02cqw;
+  font-size: 1.28cqw;
 }
 .cell--flat .cell__name--long {
-  font-size: 0.88cqw;
+  font-size: 1.06cqw;
+}
+.cell--flat .cell__price {
+  font-size: 1.5cqw;
+}
+.cell--flat .cell__rent {
+  font-size: 1.3cqw;
 }
 .cell--flat .cell__status > * {
   flex-shrink: 0;
@@ -156,7 +162,7 @@
 }
 .cell--flat .cell__name {
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -227,21 +233,22 @@
   background: repeating-linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0 0.35cqw, transparent 0.35cqw 0.9cqw);
 }
 
-/* Development: little blocks (not emoji), a gold bar for the top tier. */
+/* Development: ONE icon per level (the level is the icon, not a count of buildings). */
 .cell__dev {
   display: inline-flex;
-  gap: 0.2cqw;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.1cqw;
+  line-height: 1;
+  padding: 0.15cqw 0.45cqw;
+  border-radius: 0.6cqw;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 0.15cqw 0.4cqw rgba(0, 0, 0, 0.35);
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
-.cell__dev-block {
-  width: 0.9cqw;
-  height: 0.9cqw;
-  background: #fff;
-  border: max(1px, 0.1cqw) solid rgba(0, 0, 0, 0.55);
-  border-radius: 0.15cqw;
-}
-.cell__dev--holding .cell__dev-block {
-  width: 2.6cqw;
+.cell__dev--l5 {
   background: var(--grad-gold);
+  box-shadow: 0 0 0.8cqw rgba(212, 175, 55, 0.85);
 }
 
 /* Neutral tiles (cards / tax / official): quiet, with a coloured icon so groups stand out. */
@@ -511,8 +518,8 @@
   font-size: max(13px, 1.4cqw);
   padding-inline: 2.2cqw;
 }
-.action-bar--centre .btn--end {
-  margin-left: auto;
+.action-bar--centre .action-bar__buttons {
+  justify-content: flex-end;
 }
 .centre__log {
   list-style: none;
@@ -533,6 +540,8 @@
 /* --- Phones: pan + zoom the board, actions in a bar underneath -------------------- */
 
 .game-screen--narrow {
+  display: flex;
+  flex-direction: column;
   padding: 0;
   gap: 0;
 }
@@ -618,7 +627,7 @@
 }
 
 .cell--flat .cell__icon {
-  font-size: 1.7cqw;
+  font-size: 2cqw;
 }
 .cell--flat {
   padding-top: 0.1cqw;
@@ -627,3 +636,56 @@
 .cell--flat .cell__name {
   line-height: 1.05;
 }
+
+/* --- Desktop sidebar: players' wealth + game log, outside the board ---------------- */
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  min-width: 0;
+  padding: 4px 2px;
+}
+.side-panel__top { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.side-panel__top .chip-btn { min-height: 32px; padding: 0 12px; font-size: 13px; }
+.side-panel__top .chip-btn--icon { width: 32px; padding: 0; font-size: 16px; }
+.side-panel .player-strip { grid-auto-flow: row; grid-auto-columns: auto; gap: 8px; flex-shrink: 0; }
+.side-panel .player-strip .player-card { padding: 8px 12px; }
+.side-panel .player-strip .player-card__head { gap: 8px; margin-bottom: 2px; }
+.side-panel .player-strip .player-card__token { width: 26px; height: 26px; font-size: 14px; }
+.side-panel .player-strip .player-card__name { font-size: 15px; }
+.side-panel .player-strip .player-card__ai { font-size: 11px; }
+.side-panel .player-strip .player-card__cash { font-size: 20px; }
+.side-panel .player-strip .player-card__meta { font-size: 12.5px; gap: 2px 10px; }
+.side-panel__log-head { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.side-panel__log-head h3 { margin: 0; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.side-panel__log-head .chip-btn { min-height: 26px; padding: 0 10px; font-size: 12px; }
+.side-panel__log {
+  list-style: none; margin: 0; padding: 8px 10px; flex: 1; min-height: 0; overflow-y: auto;
+  font-size: 12.5px; line-height: 1.35; color: var(--text-muted);
+  border: 1px solid var(--line-soft); border-radius: 10px; background: var(--surface-strong);
+}
+.side-panel__log li { padding: 3px 0; border-bottom: 1px dashed var(--line-soft); overflow-wrap: anywhere; }
+.side-panel__log li:last-child { color: var(--text); border-bottom: 0; }
+
+/* Centre: whose turn it is, bigger dice and buttons (the old empty middle is put to use) */
+.centre__turn {
+  display: flex; align-items: center; gap: 1.2cqw; align-self: center;
+  padding: 0.8cqw 2cqw; border-radius: 999px;
+  background: var(--surface-strong); border: 0.25cqw solid var(--player-color, var(--gold-400));
+  box-shadow: 0 0 2cqw color-mix(in srgb, var(--player-color) 40%, transparent);
+}
+.centre__turn-token { width: 3.4cqw; height: 3.4cqw; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 2cqw; }
+.centre__turn-name { font-family: var(--font-display); font-weight: 800; font-size: 2.2cqw; }
+.centre__turn-cash { font-weight: 800; font-size: 2.2cqw; white-space: nowrap; }
+.board__center .action-bar--centre { gap: 1.4cqw; align-items: center; }
+.board__center .action-bar--centre .action-bar__info { flex-direction: column; gap: 1cqw; text-align: center; }
+.board__center .action-bar--centre .action-bar__status { font-size: max(14px, 1.7cqw); flex: none; text-align: center; }
+.board__center .action-bar--centre .die { width: max(44px, 5.4cqw); height: max(44px, 5.4cqw); border-radius: 1.1cqw; }
+.board__center .action-bar--centre .dice-row { gap: 1.2cqw; }
+.board__center .action-bar--centre .action-bar__buttons { justify-content: center; gap: 1cqw; }
+.board__center .action-bar--centre .btn { font-size: max(13px, 1.6cqw); min-height: max(40px, 4.2cqw); padding: 0.6cqw 2cqw; }
+.board__center .action-bar--centre .btn--roll { font-size: max(15px, 1.9cqw); padding-inline: 3cqw; }
+
+.cell--flat .cell__name--xlong { font-size: 0.92cqw; }
+.cell--tall .cell__name--xlong { font-size: 0.8cqw; }

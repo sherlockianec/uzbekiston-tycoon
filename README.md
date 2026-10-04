@@ -204,3 +204,6 @@ Done: everything above. Known gaps, roughly in priority order:
 ## License
 
 MIT - see `LICENSE`.
+
+## v1.2 batch 3
+Travel only from an already-owned station to other owned stations; max loan 5 000 000; non-deterministic bot trade pricing with a drag-slider trade window; bots raise refused offers then stop; sidebar with players and log beside a taller board; per-level development icons; translated game log (EN/UZ/RU/UZ-Cyrillic). See HANDOFF.md.

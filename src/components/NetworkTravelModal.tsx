@@ -14,7 +14,7 @@ export default function NetworkTravelModal({ actorId, onClose }: { actorId: stri
   const player = state.players.find((p) => p.id === actorId)!;
   const here = BOARD[player.position];
 
-  const destinations = Object.keys(INFRASTRUCTURE).filter((id) => id !== here.id);
+  const destinations = Object.keys(INFRASTRUCTURE).filter((id) => id !== here.id && !!state.ownership[id]?.ownerId);
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -24,6 +24,7 @@ export default function NetworkTravelModal({ actorId, onClose }: { actorId: stri
           {t('chooseDestination', lang)} {'\u00b7'} {t('forwardOnly', lang)}
         </p>
         <div className="trade-list">
+          {destinations.length === 0 && <p className="text-sm">{t('noOwnedStations', lang)}</p>}
           {destinations.map((id) => {
             const def = INFRASTRUCTURE[id];
             const ownership = state.ownership[id];

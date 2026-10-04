@@ -253,3 +253,15 @@ Save format is now **SAVE_VERSION 4** (old saves are rejected with the existing 
 5. `translit.PROTECTED_BRANDS` stay in Latin in Uzbek Cyrillic (`Click-ни` for glued suffixes). `spaceLabel` no longer pre-fills Russian/Cyrillic names with Latin ones (this used to hide `RU_NAME_OVERRIDES`).
 7. Could not reproduce a bot acting on crossed cells (traced in a browser: rent/tax only appear after arrival). Likely cause was the per-step bounce; pawns now glide across tiles (140ms/step) with one bounce on arrival.
 8. Light theme: `[data-theme='light']` overrides in `tokens.css`; `Settings.theme`; toggle on start/setup/rules screens and in in-game Settings.
+
+---
+## v1.2 batch 3 changes (latest)
+- **Network travel**: eligible only when the dice roll ends on a station that ALREADY had an owner (engine `markTravelEligibility`, src/game/engine/index.ts). A free station never qualifies, so buying it does not unlock travel. Destinations must be owned (UI: NetworkTravelModal; engine rejects unowned targets). Rent is paid to the destination's owner. Mortgaged origin station = no travel.
+- **MAX_LOAN_AMOUNT = 5 000 000** (economy.ts); lump repayment 130%.
+- **Bot trades** (src/game/ai/aiPlayer.ts): `tradeAskPrice` = price x (holdings multiplier, set-completion x4+, own-monopoly-break x1.5, desperation discount from loan/mortgages/low cash, rich-seller factor, per-turn hash "mood" +-18%). `evaluateTradeDetail` returns accept + ratio. `pickTradeProposal`: bots raise their offer ~20% per refusal and stop after 3 (`state.tradeRejections`), and can offer a spare piece + cash. NOT done: 2-for-2 swaps.
+- **Trade window** (TradeModal.tsx): stays open after a refusal (`state.lastTradeResult`, additive optional field) with a hint; single drag slider (you pay / they pay), +-500 000 buttons, "your balance at list prices" line.
+- **Layout**: board ratio 1.4; desktop sidebar (SidePanel.tsx) holds header buttons, player cards, game log. Phones keep players/log inside the board centre. Roll Dice is always rightmost.
+- **Development**: one icon per LEVEL (DEVELOPMENT_LEVEL_ICONS), not a block per building.
+- **Game log translated** at display time: src/i18n/logTranslate.ts (regex -> uz/ru templates; uz-cyrl derived from uz). Engine log stays English (stored in saves). tests/log-translate.test.ts plays bot games and fails on any untranslated line: when you add a log line in the engine, add a pattern.
+- Save format: no new required fields (lastTradeResult/tradeRejections optional); old v3 saves still load.
+- Known: Uzbek/Russian log wording is unreviewed by a native speaker. Visual stages 3-5 and bot balance (Banker) still open.

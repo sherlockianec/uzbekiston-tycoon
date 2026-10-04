@@ -5,7 +5,7 @@ import { BRIBE_GAMBLE_LOSS_MAX, DETENTION_FINE_SCHEDULE, MORTGAGE_WARNING_LAPS }
 import { costToReachNextLevel, getPlayer, ownableDef, refundForCurrentLevel } from '../engine/helpers';
 import { canDevelop, canMortgage, canSellDevelopment, canBuy, canUnmortgage } from '../engine/properties';
 import { canTakeLoan } from '../engine/bank';
-import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT } from '../data/economy';
+import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT, STARTING_CASH } from '../data/economy';
 import { PERSONALITIES, type PersonalityTraits } from './personalities';
 
 function traitsFor(player: Player): PersonalityTraits {
@@ -82,7 +82,8 @@ export function decideAiCommand(
 
     case 'AWAITING_TRADE_RESPONSE': {
       if (!state.trade) return null;
-      return { type: 'RESPOND_TRADE', accept: evaluateTrade(state, player, traits) };
+      const verdict = evaluateTradeDetail(state, player, traits);
+      return { type: 'RESPOND_TRADE', accept: verdict.accept, ratio: verdict.ratio };
     }
 
     default:
@@ -128,36 +129,76 @@ function groupMembers(spaceId: string): string[] {
   return [spaceId];
 }
 
+/** Stable pseudo-random number in [-1, 1] for a string. The same bot answers the same
+ * question the same way within one turn (no fishing by re-asking), but the "mood"
+ * changes from turn to turn and from deal to deal. */
+function mood(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (((h >>> 0) % 2000) / 1000) - 1;
+}
+
+/** 0..0.5: how badly this player needs cash right now (loan, mortgages, low or negative cash). */
+function financialPressure(state: GameState, playerId: string): number {
+  const p = getPlayer(state, playerId);
+  let need = 0;
+  if (p.loan) need += 0.15;
+  const mortgaged = Object.values(state.ownership).filter((o) => o.ownerId === playerId && o.mortgaged).length;
+  need += Math.min(0.2, 0.05 * mortgaged);
+  if (p.cash < 2_000_000) need += 0.15;
+  if (p.cash < 0) need += 0.2;
+  return Math.min(0.5, need);
+}
+
 /**
- * What an AI owner demands for handing `spaceId` to `requesterId`. A bare piece
- * costs about double; every piece of the same business the requester already
- * holds makes it dearer; the piece that COMPLETES their monopoly costs a
- * fortune, because the AI knows the rent it will pay afterwards. Giving up its
- * own complete set costs extra on top. `alsoGetting` = other pieces of that
- * business handed over in the same deal.
+ * What an AI owner demands for handing `spaceId` to `requesterId`. It depends on the
+ * piece's own price, how many pieces of that business the requester already holds
+ * (the more, the dearer; the piece that COMPLETES a monopoly costs a fortune because
+ * the owner knows the rent it will pay afterwards), the owner's own wealth and
+ * desperation (a bot with a loan or mortgages sells cheaper), breaking its own
+ * complete set, and a stable per-turn "mood" of about +-18%.
+ * `alsoGetting` = other pieces of that business handed over in the same deal.
  */
 export function tradeAskPrice(state: GameState, ownerId: string, requesterId: string, spaceId: string, alsoGetting = 0): number {
   const def = ownableDef(spaceId);
   const o = state.ownership[spaceId];
   const members = groupMembers(spaceId);
   const held = members.filter((id) => state.ownership[id]?.ownerId === requesterId).length + alsoGetting;
-  const completes = held + 1 >= members.length;
-  let mult = completes ? 6 : 2 + 1.5 * held;
-  if (members.every((id) => state.ownership[id]?.ownerId === ownerId)) mult *= 1.5; // breaking their own monopoly
+  const completes = held + 1 >= members.length && members.length > 1;
+  let mult = completes ? 4.2 + 0.4 * held : 1.35 + 0.9 * held;
+  if (members.length > 1 && members.every((id) => state.ownership[id]?.ownerId === ownerId)) mult *= 1.5; // breaking their own monopoly
+  mult *= Math.max(0.5, 1 - financialPressure(state, ownerId)); // desperate sellers take less
+  const owner = getPlayer(state, ownerId);
+  mult *= 0.9 + 0.3 * Math.min(1, Math.max(0, owner.cash) / (STARTING_CASH * 3)); // rich sellers do not care for money
+  mult *= 1 + 0.18 * mood(`${ownerId}|${requesterId}|${spaceId}|${state.turnNumber}`);
   const base = o?.mortgaged ? def.price * 0.6 : def.price;
   return Math.round((base * mult) / 1000) * 1000;
 }
 
-function evaluateTrade(state: GameState, player: Player, traits: PersonalityTraits): boolean {
+/** What a piece is worth TO the bot when it is offered one. */
+function valueToBot(state: GameState, botId: string, spaceId: string, alsoOffered: string[]): number {
+  const price = ownableDef(spaceId).price;
+  const members = groupMembers(spaceId);
+  const held = members.filter((id) => state.ownership[id]?.ownerId === botId).length;
+  let v = price * (1 + 0.4 * held);
+  const completes = members.length > 1 && members.every((id) => id === spaceId || state.ownership[id]?.ownerId === botId || alsoOffered.includes(id));
+  if (completes) v += price * 2.5;
+  return v;
+}
+
+/** The bot's verdict plus how far the offer was from what it wanted (for the player's hint). */
+export function evaluateTradeDetail(state: GameState, player: Player, traits: PersonalityTraits): { accept: boolean; ratio: number } {
   const trade = state.trade!;
   const papersValue = DETENTION_FINE_SCHEDULE[0] * 0.8;
 
   const offeredValue =
     trade.offerCash +
-    trade.offerPropertyIds.reduce((sum, id) => sum + ownableDef(id).price * 1.1, 0) +
+    trade.offerPropertyIds.reduce((sum, id) => sum + valueToBot(state, player.id, id, trade.offerPropertyIds), 0) +
     trade.offerReleasePapers * papersValue;
 
-  // What the AI demands for each piece it gives away (see tradeAskPrice).
   const seenInGroup = new Map<string, number>();
   let requiredValue = trade.requestCash + trade.requestReleasePapers * papersValue;
   for (const id of trade.requestPropertyIds) {
@@ -167,20 +208,11 @@ function evaluateTrade(state: GameState, player: Player, traits: PersonalityTrai
     seenInGroup.set(key, already + 1);
   }
 
-  // Pieces offered TO the AI that finish one of its own sets are worth a lot to it.
-  let completionBonus = 0;
-  for (const id of trade.offerPropertyIds) {
-    const members = groupMembers(id);
-    const willOwnAll = members.every((pid) => pid === id || state.ownership[pid]?.ownerId === player.id || trade.offerPropertyIds.includes(pid));
-    if (willOwnAll && members.length > 1) completionBonus += ownableDef(id).price * 1.5;
-  }
-
+  const ratio = requiredValue <= 0 ? 99 : offeredValue / requiredValue;
   const afterCash = player.cash - trade.requestCash + trade.offerCash;
-  if (afterCash < 0) return false;
-
-  // Nobody gives something for nothing; willing personalities shave at most 10%.
+  if (afterCash < 0) return { accept: false, ratio };
   const discount = 1 - 0.1 * traits.tradeWillingness;
-  return offeredValue + completionBonus >= requiredValue * discount;
+  return { accept: ratio >= discount, ratio };
 }
 
 function pickDevelopment(
@@ -206,10 +238,16 @@ function pickDevelopment(
   return { type: 'DEVELOP', spaceId: pick.id };
 }
 
-/** Looks for a group where this AI owns every property except exactly one,
- * held by some other living player, and — if it can afford a fair-plus-a-
- * premium cash offer — proposes buying just that one piece. Gated by
- * personality/difficulty so it doesn't fire every single turn. */
+/** Max times a bot repeats an offer for the same piece after being refused. */
+const MAX_REFUSED_OFFERS = 3;
+
+/**
+ * Looks for a business where this AI already owns most pieces and the rest (one or
+ * two) belong to ONE other living player, and offers for them: cash, or - when it
+ * has a lone spare piece elsewhere - a swap plus a cash top-up. Each refusal makes
+ * the next offer about 20% richer; after MAX_REFUSED_OFFERS refusals the bot stops
+ * asking for that piece. Gated by personality/difficulty so it does not fire every turn.
+ */
 export function pickTradeProposal(
   state: GameState,
   player: Player,
@@ -223,19 +261,41 @@ export function pickTradeProposal(
 
   for (const group of GROUPS) {
     const mine = group.propertyIds.filter((id) => state.ownership[id].ownerId === player.id);
-    if (mine.length !== group.propertyIds.length - 1) continue; // need exactly one piece missing
-    const missingId = group.propertyIds.find((id) => state.ownership[id].ownerId !== player.id);
-    if (!missingId) continue;
-    const missingOwnership = state.ownership[missingId];
-    if (!missingOwnership.ownerId || missingOwnership.level > 0 || missingOwnership.mortgaged) continue;
-    const ownerPlayer = state.players.find((p) => p.id === missingOwnership.ownerId);
+    const missing = group.propertyIds.filter((id) => state.ownership[id].ownerId !== player.id);
+    if (mine.length < 1 || missing.length < 1 || missing.length > 2) continue;
+    const ownerIds = new Set(missing.map((id) => state.ownership[id].ownerId));
+    if (ownerIds.size !== 1) continue;
+    const ownerId = [...ownerIds][0];
+    if (!ownerId) continue; // a free piece is bought on the board, not traded
+    if (missing.some((id) => state.ownership[id].level > 0 || state.ownership[id].mortgaged)) continue;
+    const ownerPlayer = state.players.find((p) => p.id === ownerId);
     if (!ownerPlayer || ownerPlayer.bankrupt) continue;
 
-    const price = PROPERTIES[missingId].price;
-    // A bot owner demands its full ask price; a human may accept a generous premium.
-    const offerCash = ownerPlayer.isAI
-      ? tradeAskPrice(state, ownerPlayer.id, player.id, missingId)
-      : Math.round((price * 1.5) / 1000) * 1000;
+    const refused = state.tradeRejections?.[`${player.id}>${missing[0]}`] ?? 0;
+    if (refused >= MAX_REFUSED_OFFERS) continue;
+
+    const sumPrice = missing.reduce((sum, id) => sum + PROPERTIES[id].price, 0);
+    let value: number;
+    if (ownerPlayer.isAI) {
+      // Bots haggle with bots: open a little under the ask and creep up.
+      let ask = 0;
+      missing.forEach((id, i) => (ask += tradeAskPrice(state, ownerPlayer.id, player.id, id, i)));
+      value = ask * (0.85 + 0.1 * refused);
+    } else {
+      value = sumPrice * (1.5 + 0.3 * refused);
+    }
+
+    // Spare lone pieces (the only one it holds of its business, not in this group) can be swapped in.
+    const spares = Object.entries(state.ownership)
+      .filter(([id, o]) => o.ownerId === player.id && isPropertyId(id) && o.level === 0 && !o.mortgaged && !group.propertyIds.includes(id))
+      .filter(([id]) => groupMembers(id).filter((m) => state.ownership[m].ownerId === player.id).length === 1)
+      .map(([id]) => id)
+      .sort((a, b) => PROPERTIES[a].price - PROPERTIES[b].price)
+      .slice(0, missing.length);
+    const spareValue = spares.reduce((sum, id) => sum + PROPERTIES[id].price, 0);
+    const useSwap = spares.length === missing.length && spareValue <= value && rng() < 0.5;
+
+    const offerCash = Math.round(Math.max(0, value - (useSwap ? spareValue : 0)) / 1000) * 1000;
     if (player.cash - offerCash < traits.cashReserve * 0.3) continue;
 
     return {
@@ -244,10 +304,10 @@ export function pickTradeProposal(
         fromId: player.id,
         toId: ownerPlayer.id,
         offerCash,
-        offerPropertyIds: [],
+        offerPropertyIds: useSwap ? spares : [],
         offerReleasePapers: 0,
         requestCash: 0,
-        requestPropertyIds: [missingId],
+        requestPropertyIds: missing,
         requestReleasePapers: 0,
       },
     };

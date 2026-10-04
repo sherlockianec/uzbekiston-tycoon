@@ -108,11 +108,6 @@ export default function ActionBar({
             onClick={() => dispatch({ type: 'BUY_PROPERTY' }, actorId!)}
           />
         )}
-        {canRoll && (
-          <button className="btn btn--primary btn--roll" onClick={() => dispatch({ type: 'ROLL_DICE' }, actorId!)}>
-            {state.hasRolledThisTurn ? t('rollAgain', lang) : t('rollDice', lang)}
-          </button>
-        )}
         {humanTurn && negative && onOpenDebt && (
           <button className="btn btn--danger" onClick={onOpenDebt}>
             {t('debtOptions', lang)}
@@ -160,6 +155,11 @@ export default function ActionBar({
         {canEndTurn && (
           <button className="btn btn--end" onClick={() => dispatch({ type: 'END_TURN' }, actorId!)}>
             {t('endTurn', lang)}
+          </button>
+        )}
+        {canRoll && (
+          <button className="btn btn--primary btn--roll" onClick={() => dispatch({ type: 'ROLL_DICE' }, actorId!)}>
+            {state.hasRolledThisTurn ? t('rollAgain', lang) : t('rollDice', lang)}
           </button>
         )}
       </div>

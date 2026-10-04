@@ -1,11 +1,11 @@
 import { BOARD_SIZE } from '../game/data/board';
 
 /** The board is a wide, flat rectangle (width : height). */
-export const BOARD_RATIO = 1.7;
+export const BOARD_RATIO = 1.4;
 /** Corner / side-column width as a percentage of the board WIDTH. */
-export const CORNER_W_PCT = 14;
+export const CORNER_W_PCT = 15;
 /** Top / bottom row height as a percentage of the board HEIGHT. */
-export const CORNER_H_PCT = 16.5;
+export const CORNER_H_PCT = 15.5;
 
 const COL_MID_W = (100 - 2 * CORNER_W_PCT) / 9;
 const ROW_MID_H = (100 - 2 * CORNER_H_PCT) / 9;
@@ -37,7 +37,7 @@ function rowCentre(row: number): number {
 export function coordsPercent(index: number): { left: number; top: number } {
   const { row, col } = gridPosition(index);
   // On the flat side bars the text sits to the left, so the pawn stands at the right end of the bar.
-  const flatShift = tileShape(index) === 'flat' ? CORNER_W_PCT / 2 - 2.3 : 0;
+  const flatShift = tileShape(index) === 'flat' ? CORNER_W_PCT / 2 - 2.2 : 0;
   return { left: colCentre(col) + flatShift, top: rowCentre(row) };
 }
 

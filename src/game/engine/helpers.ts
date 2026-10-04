@@ -112,6 +112,7 @@ export function advanceTurn(state: GameState): GameState {
     networkTravelEligible: false,
     bribeGambleUsedThisTurn: false,
     tradeProposedThisTurn: false,
+    lastTradeResult: null,
     bribeResult: null,
     notices: [],
     turnNumber: state.turnNumber + 1,

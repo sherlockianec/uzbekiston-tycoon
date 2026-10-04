@@ -46,7 +46,7 @@ function PlayerCard({ player, isActive, state }: { player: Player; isActive: boo
       </div>
       <div className="player-card__meta">
         <span>
-          {ownedCount} {t('properties', lang).toLowerCase()}
+          {t('properties', lang)}: {ownedCount}
         </span>
         {player.loan && <span className="player-card__chip">{'\u2022'} {formatSom(player.loan.dueAmount)} / {player.loan.lapsLeft}</span>}
         {player.inDetention && <span className="player-card__chip">{'\u23f8'}</span>}

@@ -12,9 +12,10 @@ import {
 } from '../game/data/properties';
 import { computeRent, playersOwning, isMortgageUrgent, mortgageLapsLeft } from '../game/engine';
 import { formatNumber } from '../utils/currency';
-import type { BoardSpace, GameState, Player } from '../game/types';
+import type { BoardSpace, GameState, Language, Player } from '../game/types';
 import { t, localized } from '../i18n/strings';
-import { CORRUPTION_TOLL_AMOUNT } from '../game/data/economy';
+import { CORRUPTION_TOLL_AMOUNT, DEVELOPMENT_LEVEL_ICONS } from '../game/data/economy';
+import { devLevelName } from '../i18n/content';
 import MoneyFloats, { StartFloats } from './MoneyFloats';
 import Icon from './icons/Icon';
 import { assetIconName, specialIconName } from './icons/iconFor';
@@ -99,11 +100,13 @@ export default function Board({ state, onSelectSpace, centre, fixedWidth }: Boar
   );
 }
 
-function DevBlocks({ level }: { level: number }) {
+/** One icon per development LEVEL (shop -> company -> site -> tower -> bank), not one block per building. */
+function DevBlocks({ level, lang }: { level: number; lang: Language }) {
   if (level <= 0) return null;
+  const name = devLevelName(level, lang);
   return (
-    <span className={`cell__dev${level >= 5 ? ' cell__dev--holding' : ''}`} aria-label={`level ${level}`}>
-      {level >= 5 ? <span className="cell__dev-block cell__dev-block--star" /> : Array.from({ length: level }).map((_, i) => <span key={i} className="cell__dev-block" />)}
+    <span className={`cell__dev cell__dev--l${level}`} role="img" aria-label={name} title={name}>
+      {DEVELOPMENT_LEVEL_ICONS[level]}
     </span>
   );
 }
@@ -115,7 +118,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
   const shape = tileShape(space.index);
   const gridStyle: CSSProperties = { gridRow: row, gridColumn: col };
   const name = localized(label, lang);
-  const nameClass = name.length > 11 ? ' cell__name--long' : name.length > 8 ? ' cell__name--mid' : '';
+  const nameClass = name.length > 22 ? ' cell__name--xlong' : name.length > 11 ? ' cell__name--long' : name.length > 8 ? ' cell__name--mid' : '';
   const specialIcon = specialIconName(space);
 
   if (shape === 'corner') {
@@ -189,7 +192,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
         <span className={`cell__name${nameClass}`}>{name}</span>
       </div>
       <div className="cell__status">
-        {ownership && ownership.level > 0 && isPropertyId(space.id) && <DevBlocks level={ownership.level} />}
+        {ownership && ownership.level > 0 && isPropertyId(space.id) && <DevBlocks level={ownership.level} lang={lang} />}
         {space.kind === 'corruption' && <span className="cell__price">{formatNumber(CORRUPTION_TOLL_AMOUNT)}</span>}
         {ownable && !owner && price !== undefined && <span className="cell__price">{formatNumber(price)}</span>}
         {owner && (

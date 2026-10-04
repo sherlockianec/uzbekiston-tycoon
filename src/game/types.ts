@@ -195,6 +195,16 @@ export interface TradeOffer {
   requestReleasePapers: number;
 }
 
+/** Outcome of the most recent trade proposal, so the trade window can stay open and explain a refusal. */
+export interface TradeResult {
+  nonce: number;
+  fromId: string;
+  toId: string;
+  accepted: boolean;
+  /** offered value / required value as the answering bot saw it (declines only). */
+  ratio?: number;
+}
+
 export interface BribeResult {
   outcome: 'gain' | 'loss' | 'jail';
   amount: number;
@@ -269,6 +279,10 @@ export interface GameState {
   bribeGambleUsedThisTurn: boolean;
   /** Set once anyone proposes a trade this turn; stops AI from re-proposing repeatedly. */
   tradeProposedThisTurn: boolean;
+  /** Outcome of the last answered proposal (optional, additive). */
+  lastTradeResult?: TradeResult | null;
+  /** How often a bot's offer for a property was refused, keyed `botId>spaceId`; caps repeat offers. */
+  tradeRejections?: Record<string, number>;
   bribeResult: BribeResult | null;
   /** Toasts for the acting human (never queued for AI players). Cleared when the turn advances. */
   notices: GameNotice[];
@@ -293,7 +307,7 @@ export type GameCommand =
   | { type: 'MORTGAGE'; spaceId: string }
   | { type: 'UNMORTGAGE'; spaceId: string }
   | { type: 'PROPOSE_TRADE'; offer: Omit<TradeOffer, 'id'> }
-  | { type: 'RESPOND_TRADE'; accept: boolean }
+  | { type: 'RESPOND_TRADE'; accept: boolean; ratio?: number }
   | { type: 'CANCEL_TRADE' }
   | { type: 'DECLARE_BANKRUPTCY' }
   | { type: 'TAKE_LOAN'; amount: number }

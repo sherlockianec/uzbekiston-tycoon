@@ -40,8 +40,16 @@ function noop(state: GameState): GameState {
  * station - the only situation in which the travel network may be used. */
 function markTravelEligibility(state: GameState, playerId: string): GameState {
   const p = getPlayer(state, playerId);
-  const onStation = BOARD[p.position].kind === 'infrastructure' && !p.inDetention;
-  return { ...state, networkTravelEligible: onStation };
+  const here = BOARD[p.position];
+  // Only a station that ALREADY had an owner when the dice landed us on it
+  // counts. A free station (phase AWAITING_PURCHASE_DECISION) never qualifies,
+  // so freshly buying it cannot unlock travel.
+  const ownedAtLanding =
+    here.kind === 'infrastructure' &&
+    !!state.ownership[here.id]?.ownerId &&
+    !state.ownership[here.id].mortgaged &&
+    state.phase === 'AWAITING_ROLL';
+  return { ...state, networkTravelEligible: ownedAtLanding && !p.inDetention };
 }
 
 function validateTradeOffer(state: GameState, offer: Omit<TradeOffer, 'id'>): boolean {
@@ -254,6 +262,8 @@ export function applyCommand(
       if (here.kind !== 'infrastructure') return noop(state);
       if (!state.ownership[here.id]?.ownerId) return noop(state);
       if (!isInfrastructureId(command.targetSpaceId) || command.targetSpaceId === here.id) return noop(state);
+      // Destinations must be owned by someone (you may pay their rent on arrival).
+      if (!state.ownership[command.targetSpaceId]?.ownerId) return noop(state);
       const target = spaceById(command.targetSpaceId);
       // Always forward around the board, collecting the salary when crossing START.
       let next = moveToTarget(state, acting.id, target.index, true, 'travel');
@@ -281,13 +291,13 @@ export function applyCommand(
     case 'PROPOSE_TRADE': {
       if (!isCurrent || state.phase !== 'AWAITING_ROLL' || command.offer.fromId !== acting.id) return noop(state);
       if (!validateTradeOffer(state, command.offer)) return noop(state);
-      return { ...proposeTrade(state, command.offer), tradeProposedThisTurn: true };
+      return { ...proposeTrade(state, command.offer), tradeProposedThisTurn: true, lastTradeResult: null };
     }
 
     case 'RESPOND_TRADE': {
       if (state.phase !== 'AWAITING_TRADE_RESPONSE' || !state.trade) return noop(state);
       if (state.trade.toId !== acting.id) return noop(state);
-      return respondTrade(state, command.accept);
+      return respondTrade(state, command.accept, command.ratio);
     }
 
     case 'CANCEL_TRADE': {

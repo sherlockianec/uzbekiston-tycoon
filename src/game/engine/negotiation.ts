@@ -23,12 +23,21 @@ export function cancelTrade(state: GameState): GameState {
   return afterTrade(next);
 }
 
-export function respondTrade(state: GameState, accept: boolean): GameState {
+export function respondTrade(state: GameState, accept: boolean, ratio?: number): GameState {
   const trade = state.trade;
   if (!trade) return state;
 
   if (!accept) {
-    const next = appendLog(state, `${getPlayer(state, trade.toId).name} declined the trade.`);
+    let next = appendLog(state, `${getPlayer(state, trade.toId).name} declined the trade.`);
+    const proposer = getPlayer(state, trade.fromId);
+    // Remember refused bot offers so the bot raises its price a little, then gives up.
+    if (proposer.isAI && trade.requestPropertyIds.length > 0) {
+      const key = `${trade.fromId}>${trade.requestPropertyIds[0]}`;
+      const rej = { ...(next.tradeRejections ?? {}) };
+      rej[key] = (rej[key] ?? 0) + 1;
+      next = { ...next, tradeRejections: rej };
+    }
+    next = { ...next, lastTradeResult: { nonce: Date.now(), fromId: trade.fromId, toId: trade.toId, accepted: false, ratio } };
     return afterTrade(next);
   }
 
@@ -53,5 +62,6 @@ export function respondTrade(state: GameState, accept: boolean): GameState {
     next,
     `${getPlayer(state, trade.fromId).name} and ${getPlayer(state, trade.toId).name} completed a trade.`
   );
+  next = { ...next, lastTradeResult: { nonce: Date.now(), fromId: trade.fromId, toId: trade.toId, accepted: true } };
   return afterTrade(next);
 }

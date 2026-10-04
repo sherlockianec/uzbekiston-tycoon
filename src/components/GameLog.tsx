@@ -1,5 +1,6 @@
 import { useActiveGame } from '../state/GameProvider';
 import { t } from '../i18n/strings';
+import { translateLog } from '../i18n/logTranslate';
 
 export default function GameLog() {
   const { state } = useActiveGame();
@@ -11,7 +12,7 @@ export default function GameLog() {
       <h3>{t('gameLog', lang)}</h3>
       <ul className="game-log__list">
         {entries.map((e) => (
-          <li key={e.id}>{e.text}</li>
+          <li key={e.id}>{translateLog(e.text, lang)}</li>
         ))}
       </ul>
     </div>

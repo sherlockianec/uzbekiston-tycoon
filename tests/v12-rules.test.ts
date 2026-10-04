@@ -30,6 +30,8 @@ describe('transport network: only right after arriving by dice, only on an owned
     let s = newTestGame();
     s = at(s, s.players[0].id, idx('tashkent-metro'));
     s = own(s, 'tashkent-metro', s.players[0].id);
+    s = own(s, 'uzbekistan-railways', 'player-1'); // only OWNED stations are destinations
+    s = own(s, 'uzbekistan-airways', 'player-1');
     return { ...s, networkTravelEligible: true, hasRolledThisTurn: true };
   };
   it('Metro (35) -> Railways (5) goes forward across START and pays the salary', () => {
@@ -37,7 +39,9 @@ describe('transport network: only right after arriving by dice, only on an owned
     const before = s.players[0].cash;
     const r = run(s, { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-railways' });
     expect(r.players[0].position).toBe(5);
-    expect(r.players[0].cash).toBe(before + GO_SALARY);
+    const rent = r.players[1].cash - s.players[1].cash; // arriving on an owned station pays its owner
+    expect(rent).toBeGreaterThan(0);
+    expect(r.players[0].cash).toBe(before + GO_SALARY - rent);
     expect(r.lastMove).toMatchObject({ from: 35, to: 5, backward: false, kind: 'travel', crossedStart: true, startDelta: GO_SALARY });
   });
   it('Railways (5) -> Airways (15) does not cross START, so no salary', () => {
@@ -46,7 +50,9 @@ describe('transport network: only right after arriving by dice, only on an owned
     const before = s.players[0].cash;
     const r = run(s, { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-airways' });
     expect(r.players[0].position).toBe(15);
-    expect(r.players[0].cash).toBe(before);
+    const rent = r.players[1].cash - s.players[1].cash;
+    expect(rent).toBeGreaterThan(0); // the destination's owner is paid
+    expect(r.players[0].cash).toBe(before - rent); // no salary: START not crossed
     expect(r.lastMove?.crossedStart).toBe(false);
   });
   it('is refused when not eligible (not arrived by dice) or when the station is unowned', () => {
@@ -55,6 +61,11 @@ describe('transport network: only right after arriving by dice, only on an owned
     const unowned = own(s, 'tashkent-metro', null);
     expect(run(unowned, { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-railways' }).players[0].position).toBe(35);
   });
+  it('cannot travel to a station nobody owns', () => {
+    const s = own(ready(), 'uzbekistan-railways', null);
+    expect(run(s, { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-railways' }).players[0].position).toBe(35);
+    expect(run(s, { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-airways' }).players[0].position).toBe(15);
+  });
   it('after travelling there is no chain: eligibility is spent, and it resets on the next turn', () => {
     const r = run(ready(), { type: 'TRAVEL_NETWORK', targetSpaceId: 'uzbekistan-railways' });
     expect(r.networkTravelEligible).toBe(false);
@@ -62,13 +73,21 @@ describe('transport network: only right after arriving by dice, only on an owned
     const next = run({ ...r, hasRolledThisTurn: true }, { type: 'END_TURN' });
     expect(next.networkTravelEligible).toBe(false);
   });
-  it('a dice roll ending on a station makes travel eligible; a roll ending elsewhere does not', () => {
-    let s = at(newTestGame(), 'player-0', 2);
-    let r = run(s, { type: 'ROLL_DICE' }, 0, queueRng([1, 2])); // 2 + 3 = 5 railways
+  it('a roll ending on an ALREADY OWNED station makes travel eligible; elsewhere or on a free one does not', () => {
+    let s = own(at(newTestGame(), 'player-0', 2), 'uzbekistan-railways', 'player-1');
+    let r = run(s, { type: 'ROLL_DICE' }, 0, queueRng([1, 2])); // 2 + 3 = 5 railways (owned by player-1: pays rent)
     expect(r.players[0].position).toBe(5);
     expect(r.networkTravelEligible).toBe(true);
     r = run(s, { type: 'ROLL_DICE' }, 0, queueRng([1, 1])); // lands on 4 (tax)
     expect(r.networkTravelEligible).toBe(false);
+    // A free station: landing offers a purchase, and buying it does NOT unlock travel.
+    const free = at(newTestGame(), 'player-0', 2);
+    let f = run(free, { type: 'ROLL_DICE' }, 0, queueRng([1, 2]));
+    expect(f.phase).toBe('AWAITING_PURCHASE_DECISION');
+    expect(f.networkTravelEligible).toBe(false);
+    f = run(f, { type: 'BUY_PROPERTY' });
+    expect(f.ownership['uzbekistan-railways'].ownerId).toBe('player-0');
+    expect(f.networkTravelEligible).toBe(false);
   });
 });
 
@@ -219,8 +238,8 @@ describe('Negative balance instead of debt', () => {
 
 describe('Loan: one lump sum at maturity', () => {
   it('takes principal + 30% once, after LOAN_LAPS START passes', () => {
-    let s = run(newTestGame(), { type: 'TAKE_LOAN', amount: 10_000_000 });
-    expect(s.players[0].loan).toEqual({ principal: 10_000_000, dueAmount: 13_000_000, lapsLeft: LOAN_LAPS });
+    let s = run(newTestGame(), { type: 'TAKE_LOAN', amount: 5_000_000 });
+    expect(s.players[0].loan).toEqual({ principal: 5_000_000, dueAmount: 6_500_000, lapsLeft: LOAN_LAPS });
     const cashAfterLoan = s.players[0].cash;
     for (let lap = 1; lap <= LOAN_LAPS; lap++) {
       s = { ...at(s, 'player-0', 38), phase: 'AWAITING_ROLL', hasRolledThisTurn: false, doublesStreak: 0 };
@@ -228,6 +247,6 @@ describe('Loan: one lump sum at maturity', () => {
       if (lap < LOAN_LAPS) expect(s.players[0].loan?.lapsLeft).toBe(LOAN_LAPS - lap);
     }
     expect(s.players[0].loan).toBeNull();
-    expect(s.players[0].cash).toBe(cashAfterLoan + GO_SALARY * LOAN_LAPS - 13_000_000);
+    expect(s.players[0].cash).toBe(cashAfterLoan + GO_SALARY * LOAN_LAPS - 6_500_000);
   });
 });

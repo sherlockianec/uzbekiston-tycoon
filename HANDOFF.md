@@ -35,7 +35,7 @@ Deploy: push to GitHub `main`, Settings > Pages > Source = GitHub Actions. `.git
 - Bigger board/cells, small logo, animated hop-by-hop bust tokens, owner name + current rent shown on owned tiles, distinct group colours.
 - Card shows first; its effect applies only when the player presses OK.
 - Transport: landing on a station lets you travel once per turn to any other station (free, no salary on the hop, resolves landing there).
-- Bank loan: max 10,000,000, 30% interest, 3 installments collected automatically at START, one loan at a time, early repay allowed.
+- Bank loan: max 10,000,000, 30% interest, ONE lump payment (principal + 30%) taken at the 3rd START pass (`Loan{principal,dueAmount,lapsLeft}`), one loan at a time, early repay allowed.
 - Reference game (Godot mobile tycoon; uploaded files are NOT in this repo) is inspiration only: never copy its names, text, code or art.
 
 ---
@@ -57,7 +57,7 @@ src/
                                     card draw/ack/effects, attemptBribe, detention helpers
             properties.ts           buy (discount), rent, develop/sell (level-5 premium), mortgage/unmortgage, can* guards
             bank.ts                 loans: canTakeLoan/takeLoan/repayLoanEarly
-            liquidation.ts          forced liquidation, declareBankruptcy (sets bankruptOrder)
+            bankruptcy.ts           declareBankruptcy (assets -> bank, sets bankruptOrder)
             negotiation.ts          trades (propose/respond/cancel). Auction code was REMOVED.
             helpers.ts              chargePlayer, advanceTurn, liquidValue, update* helpers
             newGame.ts              createNewGame, SAVE_VERSION
@@ -66,7 +66,7 @@ src/
         aiPlayer.ts                 nextActorId, decideAiCommand, buy/bid/trade/develop/liquidate/trade-proposal logic
   state/GameProvider.tsx            context, dispatch, autosave, AI loop
   components/ Board (grid + animated tokens) PlayerPanel ActionBar Dice PropertyInspector CardModal TradeModal
-             LiquidationModal BuildModal BankModal NetworkTravelModal BribeModal EndGameModal GameLog Emblem
+             NegativeBalanceModal CentreDashboard BuildModal BankModal NetworkTravelModal BribeModal EndGameModal GameLog Emblem
   pages/ StartScreen NewGameScreen GameScreen RulesScreen
   i18n/strings.ts                   UI chrome in 4 langs (S() helper derives Uz-Cyrillic), t(), tf(), localized()
   i18n/content.ts                   card/description/personality/difficulty/dev-level translations
@@ -75,7 +75,7 @@ src/
   hooks/useSound.ts  utils/currency.ts (formatSom: "2 500 000 so'm")  utils/tokenIcons.ts  styles/global.css
 tests/ engine.test.ts render.test.tsx gamescreen.test.tsx
 ```
-**Phases:** AWAITING_ROLL, AWAITING_PURCHASE_DECISION, AWAITING_CARD_ACK, AWAITING_LIQUIDATION, AWAITING_TRADE_RESPONSE, GAME_OVER (IN_AUCTION exists but is unreachable).
+**Phases:** AWAITING_ROLL, AWAITING_PURCHASE_DECISION, AWAITING_CARD_ACK, AWAITING_TRADE_RESPONSE, GAME_OVER (IN_AUCTION exists but is unreachable).
 **Commands:** ROLL_DICE, BUY_PROPERTY, DECLINE_PURCHASE, ACK_CARD, PAY_DETENTION_FINE, USE_RELEASE_PAPER, END_TURN, DEVELOP, SELL_DEVELOPMENT, MORTGAGE, UNMORTGAGE, TAKE_LOAN, REPAY_LOAN_EARLY, TRAVEL_NETWORK, ATTEMPT_BRIBE, DISMISS_BRIBE_RESULT, PROPOSE_TRADE, RESPOND_TRADE, CANCEL_TRADE, LIQUIDATE_MORTGAGE, LIQUIDATE_SELL_DEVELOPMENT, DECLARE_BANKRUPTCY (+ dormant PLACE_BID/PASS_AUCTION).
 **Key state fields:** `players[]` (cash, position, inDetention, detentionTurns, releasePapers, `loan{principal,installmentAmount,installmentsLeft}`, `taxImmunity`, `purchaseDiscountPercent`, `bankrupt`, `bankruptOrder`), `ownership[id]{ownerId, level, mortgaged, mortgageLapsRemaining}`, `pendingDebt{amount,payeeId,reason,kind:'rent'|'tax'|'card'|'loan'}`, `drawnCard`, `cardCausedMove`, `pendingRentMultiplier`, `bribeResult`, per-turn flags `networkTravelUsed`, `bribeGambleUsedThisTurn`, `tradeProposedThisTurn` (all reset in `advanceTurn`), `log[]`.
 **Save format:** JSON of whole `GameState` under localStorage `uzbekiston-tycoon:save:v1`; settings under `uzbekiston-tycoon:settings:v1`. `SAVE_VERSION = 1` in `newGame.ts`; `loadGame` discards mismatching versions. **WARNING: state shape changed a lot since v1 but the version was NOT bumped - see Remaining Work #1.**
@@ -232,3 +232,24 @@ Verified: `tsc` clean, `vitest` 241/241 in 19 files, `npm run build` OK, and - f
 **Known, deliberately left for Stage 2 (board and tiles)**: on a phone each board tile is only ~31 px wide, so long names ("Налоговая инспекция", "Подоходный налог") cannot fit; prices wrap on desktop; "Business Opportunity" is truncated; pawns overlap tile text; dice are plain cream squares with no pips until a roll. The Stage 2 answer is bigger tiles + zoom/pan + a Flat/Tilted toggle.
 
 **How the screenshots were made** (repeat before reporting any later stage): `npm run build && npx vite preview --port 4173`, then Python Playwright with `executable_path='/opt/pw-browsers/chromium'`, `--no-sandbox`; a mid-game save (80 turns of AI play, 24 properties owned) is injected into `localStorage['uzbekiston-tycoon:save:v1']`, settings into `...:settings:v1`, and the page is overflow-scanned in JS (`scrollWidth > clientWidth` on non-ellipsis elements).
+
+
+## 11. v1.2 batch 2 - 14 fixes (rules, board, themes) DONE
+
+Save format is now **SAVE_VERSION 4** (old saves are rejected with the existing "outdated save" notice).
+
+**Engine rules changed (all tested):**
+1. **Transport network** = a bonus for a dice roll that ENDS on an owned station. `GameState.networkTravelEligible` is set by `markTravelEligibility` after a ROLL_DICE move, cleared at the next roll, after travel and in `advanceTurn`. `TRAVEL_NETWORK` also needs the station owned, cash >= 0 and `!networkTravelUsed`. Card/jail/travel arrivals never make it eligible.
+2. **Bot trades** (`aiPlayer.tradeAskPrice`): ask = price x (2 + 1.5 x pieces of that business the requester holds), x6 if the piece completes their set, x1.5 more if the bot breaks its own set, 0.6 base if mortgaged. `evaluateTrade` accepts only if offered value (+ completion bonus for the bot) >= ask x (1 - 0.1 x tradeWillingness). Bot-initiated proposals offer that same ask (humans get 1.5x).
+6. **Choyxona**: `Player.resting` is set in END_TURN when standing on `corner-rest`; ROLL_DICE is a no-op while resting, END_TURN is allowed and clears it.
+10. **Corners**: 10 = `rest`, 20 = `bribe-official`, 30 = `detention` (forward-only jail, salary if `from > 30`).
+11. `MoveInfo.crossedStart/startDelta` (set in `turn.passStart`); `GameProvider` splits that amount off into a float anchored on the START tile at the step where the pawn crosses (`stepsToStart`), and subtracts it from the final cash diff.
+12. **Loan**: `grantSalary` decrements `lapsLeft` (toast `loanLap`); at 0 it charges `dueAmount` once (toast `loanPaid`).
+13. **Negative balance**: `chargePlayer` always transfers in full (creditor gets everything, payer may go < 0). AWAITING_LIQUIDATION, `pendingDebt`, `LIQUIDATE_*`, `PAY_DEBT`, `tradeReturnPhase` are gone. ROLL_DICE / END_TURN / TRAVEL are blocked while cash < 0; `DECLARE_BANKRUPTCY` only when cash < 0 and sends all assets to the bank. Bots recover with `pickRecoveryStep` (sell levels, mortgage, loan, else bankrupt).
+14. **Buy before roll**: `BUY_PROPERTY` works in AWAITING_ROLL when standing on an unowned ownable (not resting, not in detention). Bots do this too.
+
+**UI changes:**
+3/4/9. Wide flat board (`BOARD_RATIO` 1.7, side columns 14% wide, top/bottom rows 16.5% high - see `components/boardGeometry.ts`), every size in `cqw`; tiles are filled with the group colour (`inkOn()` picks black/white text); owner = coloured ring + name pill + rent; mortgaged = hatched + lock; development = blocks. The middle of the board is `CentreDashboard` (players, dice, status, Roll/Buy/Build/Bank/Trade/End Turn, last 3 log lines, Properties/Log/Settings/Quit). Phones (`useIsNarrow`: <=900px wide or <=520px tall): board drawn 980px x zoom in a scrolling box with +/- buttons, follows the active pawn; action bar sits under it.
+5. `translit.PROTECTED_BRANDS` stay in Latin in Uzbek Cyrillic (`Click-ни` for glued suffixes). `spaceLabel` no longer pre-fills Russian/Cyrillic names with Latin ones (this used to hide `RU_NAME_OVERRIDES`).
+7. Could not reproduce a bot acting on crossed cells (traced in a browser: rent/tax only appear after arrival). Likely cause was the per-step bounce; pawns now glide across tiles (140ms/step) with one bounce on arrival.
+8. Light theme: `[data-theme='light']` overrides in `tokens.css`; `Settings.theme`; toggle on start/setup/rules screens and in in-game Settings.

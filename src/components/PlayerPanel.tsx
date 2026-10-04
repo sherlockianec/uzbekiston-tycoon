@@ -9,9 +9,10 @@ import MoneyFloats from './MoneyFloats';
 import Icon from './icons/Icon';
 import { assetIconName, groupIconName } from './icons/iconFor';
 
-export function PlayerList({ state }: { state: GameState }) {
+/** Compact row of player cards for the middle of the board. */
+export function PlayerStrip({ state }: { state: GameState }) {
   return (
-    <div className="panel scroll-y" style={{ padding: 12 }}>
+    <div className="player-strip">
       {state.players.map((p, i) => (
         <PlayerCard key={p.id} player={p} isActive={i === state.currentPlayerIndex} state={state} />
       ))}
@@ -34,20 +35,24 @@ function PlayerCard({ player, isActive, state }: { player: Player; isActive: boo
         </span>
         <span className="player-card__name">{player.name}</span>
         {player.isAI && (
-          <span className="text-muted text-sm" title={player.personality}>
+          <span className="player-card__ai" title={player.personality}>
             AI
           </span>
         )}
       </div>
-      <div className="player-card__cash money">
+      <div className={`player-card__cash money${player.cash < 0 ? ' money--negative' : ''}`}>
         {formatSom(player.cash)}
         <MoneyFloats playerId={player.id} className="money-floats--card" />
       </div>
       <div className="player-card__meta">
-        {ownedCount} {t('properties', lang).toLowerCase()}
-        {player.inDetention ? ' \u00b7 \u23f8 detention' : ''}
+        <span>
+          {ownedCount} {t('properties', lang).toLowerCase()}
+        </span>
+        {player.loan && <span className="player-card__chip">{'\u2022'} {formatSom(player.loan.dueAmount)} / {player.loan.lapsLeft}</span>}
+        {player.inDetention && <span className="player-card__chip">{'\u23f8'}</span>}
+        {player.resting && <span className="player-card__chip">{'\u2615'}</span>}
+        {player.bankrupt && <span className="player-card__chip">{'\ud83d\udc80'} {t('bankruptLabel', lang)}</span>}
       </div>
-      {player.bankrupt && <div className="status-chip">{'\ud83d\udc80'} bankrupt</div>}
     </div>
   );
 }

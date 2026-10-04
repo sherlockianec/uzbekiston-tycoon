@@ -6,7 +6,8 @@ import { createRng, shuffle } from './random';
 
 // v2: mortgage deadlines, loan/immunity/discount state, bankruptcy order, per-turn
 // flags, no-auction flow. v1 saves have an incompatible shape and are rejected.
-export const SAVE_VERSION = 3;
+// v4: negative balances (no pendingDebt), lump-sum loans, resting flag, swapped corners.
+export const SAVE_VERSION = 4;
 
 const TOKEN_COLORS = ['#2FB8AF', '#D4AF52', '#D4536B', '#5BB8E0'];
 const TOKEN_SHAPES: TokenShape[] = ['car', 'tower', 'bank', 'briefcase', 'train', 'building', 'plane', 'phone'];
@@ -40,6 +41,7 @@ export function createNewGame(config: NewGameConfig, seed: number = Date.now()):
     purchaseDiscountPercent: null,
     bankrupt: false,
     bankruptOrder: null,
+    resting: false,
   }));
 
   const mahallaDeck = shuffle(MAHALLA_CARDS.map((c) => c.id), rng);
@@ -66,10 +68,10 @@ export function createNewGame(config: NewGameConfig, seed: number = Date.now()):
     businessDeck,
     businessDiscard: [],
     trade: null,
-    pendingDebt: null,
     log: [{ id: 'log-0', turn: 0, text: `New game started with ${players.length} players.` }],
     turnNumber: 1,
     networkTravelUsed: false,
+    networkTravelEligible: false,
     bribeGambleUsedThisTurn: false,
     tradeProposedThisTurn: false,
     bribeResult: null,
@@ -77,6 +79,5 @@ export function createNewGame(config: NewGameConfig, seed: number = Date.now()):
     winnerId: null,
     settings: config.settings,
     lastMove: null,
-    tradeReturnPhase: null,
   };
 }

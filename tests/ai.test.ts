@@ -86,7 +86,7 @@ describe('AI bribe gamble', () => {
     expect(pickBribe({ ...s, bribeGambleUsedThisTurn: true }, s.players[0], t, () => 0, 'hard')).toBeNull();
     const jailed = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, inDetention: true } : p)) };
     expect(pickBribe(jailed, jailed.players[0], t, () => 0, 'hard')).toBeNull();
-    const loan = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, loan: { principal: 1, installmentAmount: 1, installmentsLeft: 1 } } : p)) };
+    const loan = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, loan: { principal: 1, dueAmount: 3_900_000, lapsLeft: 1 } } : p)) };
     expect(pickBribe(loan, loan.players[0], t, () => 0, 'hard')).toBeNull();
   });
   it('easy gambles half as often', () => {

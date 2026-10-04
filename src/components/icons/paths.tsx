@@ -184,6 +184,28 @@ export const ICON_PATHS = {
       <path d="M12 14.6v2.6" className="i-accent" />
     </>
   ),
+  settings: (
+    <>
+      <circle cx="12" cy="12" r="3.2" className="i-accent" />
+      <path d="M12 2.8v2.6M12 18.6v2.6M2.8 12h2.6M18.6 12h2.6M5.5 5.5l1.9 1.9M16.6 16.6l1.9 1.9M18.5 5.5l-1.9 1.9M7.4 16.6l-1.9 1.9" />
+      <circle cx="12" cy="12" r="6.6" />
+    </>
+  ),
+  close: (
+    <>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </>
+  ),
+  plus: (
+    <>
+      <path d="M12 5v14M5 12h14" />
+    </>
+  ),
+  minus: (
+    <>
+      <path d="M5 12h14" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 export type IconName = keyof typeof ICON_PATHS;

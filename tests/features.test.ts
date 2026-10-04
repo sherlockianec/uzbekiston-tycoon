@@ -110,7 +110,7 @@ describe('end-game ranking', () => {
   });
   it('liquidation assigns increasing bankruptOrder', () => {
     let s = newTestGame(3);
-    s = { ...s, phase: 'AWAITING_LIQUIDATION', pendingDebt: { amount: 9e9, payeeId: 'BANK', reason: 'x', kind: 'tax' }, currentPlayerIndex: 0 } as GameState;
+    s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: -9e9 } : p)), currentPlayerIndex: 0 } as GameState;
     s = applyCommand(s, { type: 'DECLARE_BANKRUPTCY' }, s.players[0].id, queueRng([]));
     expect(s.players[0].bankruptOrder).toBe(1);
   });
@@ -127,7 +127,7 @@ describe('bankruptcy warning', () => {
     let s = own(newTestGame(), 0, ['korzinka']);
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: 0 } : p)) };
     expect(shouldWarnBeforeBankruptcy(s, s.players[0].id)).toBe(true);
-    const loaded = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, loan: { principal: 1, installmentAmount: 1e9, installmentsLeft: 1 } } : p)) };
+    const loaded = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, loan: { principal: 1, dueAmount: 1e9, lapsLeft: 1 } } : p)) };
     expect(liquidValue(loaded, s.players[0].id)).toBeLessThan(0);
     expect(shouldWarnBeforeBankruptcy(loaded, s.players[0].id)).toBe(false);
   });
@@ -160,7 +160,7 @@ describe('AI trade proposals', () => {
   const ai = (s: GameState) => s.players[1];
   const traits = PERSONALITIES.developer;
 
-  it('proposes buying the one missing piece at a 15% premium', () => {
+  it('proposes buying the one missing piece at the owner\'s full monopoly-aware ask', () => {
     const s = nearMonopoly();
     const cmd = pickTradeProposal(s, ai(s), traits, () => 0, 'hard');
     expect(cmd?.type).toBe('PROPOSE_TRADE');
@@ -168,7 +168,7 @@ describe('AI trade proposals', () => {
     const missing = GROUPS.find((x) => x.id === 'retail')!.propertyIds[2];
     expect(cmd.offer.requestPropertyIds).toEqual([missing]);
     expect(cmd.offer.toId).toBe(s.players[0].id);
-    expect(cmd.offer.offerCash).toBe(Math.round((PROPERTIES[missing].price * 1.15) / 1000) * 1000);
+    expect(cmd.offer.offerCash).toBeGreaterThanOrEqual(PROPERTIES[missing].price * 1.5);
     expect(cmd.offer.offerCash % 1000).toBe(0);
   });
   it('once per turn: the cap blocks a second proposal', () => {

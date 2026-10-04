@@ -143,7 +143,7 @@ describe('Bank buttons', () => {
   });
   it('Repay is green when cash covers the balance, red otherwise', () => {
     const s = newTestGame();
-    const loan = { principal: 3_000_000, installmentAmount: 1_300_000, installmentsLeft: 3 }; // 3.9M owed
+    const loan = { principal: 3_000_000, dueAmount: 3_900_000, lapsLeft: 3 }; // 3.9M due at maturity
     const mk = (cash: number) => withCash({ ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, loan } : p)) }, cash);
     expect(wrap(mk(3_900_000), <BankModal actorId={s.players[0].id} onClose={noop} />)).toContain('btn--affordable');
     const red = wrap(mk(3_899_000), <BankModal actorId={s.players[0].id} onClose={noop} />);

@@ -76,7 +76,7 @@ export function loadSettings(): Settings | null {
   }
 }
 
-export const DEFAULT_SETTINGS: Settings = { sound: true, animations: true, aiSpeedMs: 900, language: 'en' };
+export const DEFAULT_SETTINGS: Settings = { sound: true, animations: true, aiSpeedMs: 900, language: 'en', theme: 'dark' };
 
 const VALID_LANGUAGES = ['en', 'uz', 'ru', 'uz-cyrl'];
 
@@ -85,5 +85,6 @@ export function loadPreferredSettings(): Settings {
   const saved = loadSettings();
   const merged: Settings = { ...DEFAULT_SETTINGS, ...(saved ?? {}) };
   if (!VALID_LANGUAGES.includes(merged.language)) merged.language = DEFAULT_SETTINGS.language;
+  if (merged.theme !== 'light' && merged.theme !== 'dark') merged.theme = 'dark';
   return merged;
 }

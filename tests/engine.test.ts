@@ -174,7 +174,7 @@ describe('buying and rent', () => {
     expect(bothOwned).toBe(7 * UTILITIES['uzbekneftegaz'].diceMultiplier.both * UTILITIES['uzbekneftegaz'].unitValue);
   });
 
-  it('an unaffordable rent payment opens the liquidation flow', () => {
+  it('an unaffordable rent payment goes through in full and leaves a negative balance', () => {
     let state = baseGame();
     const ownerId = state.players[0].id;
     const payerId = state.players[1].id;
@@ -191,9 +191,11 @@ describe('buying and rent', () => {
     // Simulate landing resolution directly by re-rolling with a fixed sum via ROLL_DICE
     // from one space back, so movement lands exactly on korzinka.
     state = { ...state, players: state.players.map((p) => (p.id === payerId ? { ...p, position: 4 } : p)) };
+    const ownerBefore = state.players.find((p) => p.id === ownerId)!.cash;
     state = applyCommand(state, { type: 'ROLL_DICE' }, payerId, scriptedRng([1, 1]));
-    expect(state.phase).toBe('AWAITING_LIQUIDATION');
-    expect(state.pendingDebt?.payeeId).toBe(ownerId);
+    expect(state.phase).toBe('AWAITING_ROLL');
+    expect(state.players.find((p) => p.id === payerId)!.cash).toBeLessThan(0);
+    expect(state.players.find((p) => p.id === ownerId)!.cash).toBeGreaterThan(ownerBefore);
   });
 });
 
@@ -307,7 +309,7 @@ describe('detention (jail)', () => {
     state = applyCommand(state, { type: 'ROLL_DICE' }, humanId, scriptedRng([5, 5]));
     const human = state.players.find((p) => p.id === humanId)!;
     expect(human.inDetention).toBe(false);
-    expect(human.position).toBe(spaceById('detention').index + 10);
+    expect(human.position).toBe((spaceById('detention').index + 10) % 40);
   });
 
   it('force-releases after three failed attempts and charges the fine', () => {
@@ -342,7 +344,7 @@ describe('detention (jail)', () => {
 });
 
 describe('bankruptcy', () => {
-  it('transfers assets to the creditor and ends the game with one player left (2-player game)', () => {
+  it('ends the game with one player left (2-player game); assets go back to the bank', () => {
     let state = baseGame(2);
     const debtorId = state.players[1].id;
     const creditorId = state.players[0].id;
@@ -350,25 +352,23 @@ describe('bankruptcy', () => {
     state = {
       ...state,
       currentPlayerIndex: 1,
-      phase: 'AWAITING_LIQUIDATION',
-      pendingDebt: { amount: 999_999_999, payeeId: creditorId, reason: 'test debt', kind: 'tax' },
+      players: state.players.map((p) => (p.id === debtorId ? { ...p, cash: -5_000_000 } : p)),
     };
     state = applyCommand(state, { type: 'DECLARE_BANKRUPTCY' }, debtorId, scriptedRng([]));
     expect(state.players.find((p) => p.id === debtorId)?.bankrupt).toBe(true);
-    expect(state.ownership['chorsu-bazaar'].ownerId).toBe(creditorId);
+    expect(state.ownership['chorsu-bazaar'].ownerId).toBeNull();
     expect(state.phase).toBe('GAME_OVER');
     expect(state.winnerId).toBe(creditorId);
   });
 
-  it('returns properties to the bank when the debt was owed to the bank', () => {
+  it('returns properties to the bank, open to buy again', () => {
     let state = baseGame(3);
     const debtorId = state.players[1].id;
     state = buyProperty(state, debtorId, 'chorsu-bazaar');
     state = {
       ...state,
       currentPlayerIndex: 1,
-      phase: 'AWAITING_LIQUIDATION',
-      pendingDebt: { amount: 999_999_999, payeeId: 'BANK', reason: 'tax', kind: 'tax' },
+      players: state.players.map((p) => (p.id === debtorId ? { ...p, cash: -5_000_000 } : p)),
     };
     state = applyCommand(state, { type: 'DECLARE_BANKRUPTCY' }, debtorId, scriptedRng([]));
     expect(state.ownership['chorsu-bazaar']).toEqual({ ownerId: null, level: 0, mortgaged: false, mortgageLapsRemaining: null });

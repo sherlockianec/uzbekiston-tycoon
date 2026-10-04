@@ -61,7 +61,7 @@ describe('outcome boundaries', () => {
       const r = attempt(newTestGame(), [roll]);
       expect(r.bribeResult?.outcome).toBe('jail');
       expect(r.players[0].inDetention).toBe(true);
-      expect(r.players[0].position).toBe(10);
+      expect(r.players[0].position).toBe(30);
     }
   });
   it('0.75 and 0.999 -> gain', () => {
@@ -112,13 +112,13 @@ describe('rules around the gamble', () => {
     const wrongPhase = { ...s, phase: 'AWAITING_PURCHASE_DECISION' as const };
     expect(applyCommand(wrongPhase, { type: 'ATTEMPT_BRIBE' }, s.players[0].id, floatRng([0.9]))).toBe(wrongPhase);
   });
-  it('unaffordable loss: liquidation, debt to bank, no result popup', () => {
+  it('unaffordable loss: balance goes negative and the result popup still shows', () => {
     let s = newTestGame();
     s = { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: 100_000 } : p)) };
     const r = attempt(s, [0.1, 0.5]);
-    expect(r.phase).toBe('AWAITING_LIQUIDATION');
-    expect(r.pendingDebt).toMatchObject({ payeeId: 'BANK', amount: 750_000 });
-    expect(r.bribeResult).toBeNull();
+    expect(r.phase).toBe('AWAITING_ROLL');
+    expect(r.players[0].cash).toBe(100_000 - 750_000);
+    expect(r.bribeResult?.outcome).toBe('loss');
   });
   it('AI attempts never set bribeResult, for any outcome', () => {
     for (const [roll, amt] of [[0.1, 0.5], [0.5, 0.5], [0.9, 0.5]]) {

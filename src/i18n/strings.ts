@@ -123,16 +123,16 @@ export const STRINGS = {
   },
   loanAmount: { en: 'Loan Amount', uz: 'Kredit summasi', ru: '\u0421\u0443\u043c\u043c\u0430 \u043a\u0440\u0435\u0434\u0438\u0442\u0430', 'uz-cyrl': '\u041a\u0440\u0435\u0434\u0438\u0442 \u0441\u0443\u043c\u043c\u0430\u0441\u0438' },
   loanBalance: {
-    en: 'Remaining Balance',
-    uz: 'Qolgan qarz',
-    ru: '\u041e\u0441\u0442\u0430\u0442\u043e\u043a \u0434\u043e\u043b\u0433\u0430',
-    'uz-cyrl': '\u049a\u043e\u043b\u0433\u0430\u043d \u049b\u0430\u0440\u0437',
+    en: 'Due at maturity (one payment)',
+    uz: "Muddat tugaganda to'lanadi (bir marta)",
+    ru: 'К оплате в срок (одним платежом)',
+    'uz-cyrl': 'Муддат тугаганда тўланади (бир марта)',
   },
   installmentsLeft: {
-    en: 'Installments Left',
-    uz: "Qolgan to'lovlar",
-    ru: '\u041e\u0441\u0442\u0430\u043b\u043e\u0441\u044c \u043f\u043b\u0430\u0442\u0435\u0436\u0435\u0439',
-    'uz-cyrl': '\u049a\u043e\u043b\u0433\u0430\u043d \u0442\u045e\u043b\u043e\u0432\u043b\u0430\u0440',
+    en: 'Laps until it is taken',
+    uz: 'Yechilgunga qadar aylanalar',
+    ru: 'Кругов до списания',
+    'uz-cyrl': 'Ечилгунга қадар айланалар',
   },
   noActiveLoan: {
     en: 'No active loan.',
@@ -214,12 +214,32 @@ export const STRINGS = {
   speedSlow: S('Slow', 'Sekin', 'Медленно'),
   statusMoving: S('{name} is on the move...', "{name} yo'lda...", '{name} в пути...'),
   statusInDebt: S(
-    '{name}: you owe {amount}. Raise the money (loan, sell, trade) and pay, or declare bankruptcy as a last resort.',
-    "{name}: qarzingiz {amount}. Pul toping (kredit, sotish, savdo) va to'lang, yoki oxirgi chora sifatida bankrotlikni e'lon qiling.",
-    '{name}: вы должны {amount}. Найдите деньги (кредит, продажа, обмен) и заплатите, либо объявите банкротство в крайнем случае.'
+    '{name}: your balance is {amount}. Raise money (sell, mortgage, loan, trade) until it is 0 or more to continue, or declare bankruptcy.',
+    "{name}: hisobingiz {amount}. Davom etish uchun hisobni 0 yoki undan yuqoriga olib chiqing (sotish, garov, kredit, savdo) yoki bankrotlikni e'lon qiling.",
+    '{name}: ваш баланс {amount}. Чтобы продолжить, поднимите его до 0 или выше (продажа, залог, кредит, обмен) либо объявите банкротство.'
   ),
-  payDebt: S("Pay debt", "Qarzni to'lash", 'Погасить долг'),
-  debtOptions: S('Debt options', 'Qarz bo\'yicha amallar', 'Варианты по долгу'),
+  debtOptions: S('Cover balance', 'Hisobni qoplash', 'Покрыть баланс'),
+  statusResting: S(
+    "{name}: tea time at the choyxona \u2014 no dice this turn. Manage things, then end your turn.",
+    "{name}: choyxonada dam \u2014 bu navbatda zar yo'q. Ishlaringizni qiling, so'ng navbatni tugating.",
+    '{name}: отдых в чайхане \u2014 в этот ход без кубиков. Займитесь делами и завершите ход.'
+  ),
+  statusBuyFirst: S(
+    "{name}'s turn \u2014 you may buy the space you stand on before you roll.",
+    "{name} navbati \u2014 zar tashlashdan oldin turgan katagingizni sotib olishingiz mumkin.",
+    'Ход игрока {name} \u2014 до броска можно купить клетку, на которой вы стоите.'
+  ),
+  theme: S('Theme', 'Mavzu', 'Тема'),
+  themeDark: S('Dark', "Qorong'i", 'Тёмная'),
+  themeLight: S('Light', "Yorug'", 'Светлая'),
+  zoomIn: S('Zoom in', 'Yaqinlashtirish', 'Увеличить'),
+  zoomOut: S('Zoom out', 'Uzoqlashtirish', 'Уменьшить'),
+  logButton: S('Log', 'Jurnal', 'Журнал'),
+  playersHeadingShort: S('Players', "O'yinchilar", 'Игроки'),
+  negativeBalance: S('Negative balance', 'Manfiy hisob', 'Отрицательный баланс'),
+  balanceNow: S('Balance', 'Hisob', 'Баланс'),
+  toReachZero: S('Needed to reach 0', "0 ga yetish uchun kerak", 'Нужно до нуля'),
+  bankruptcyConfirm: S('Declare bankruptcy and give everything back to the bank?', "Bankrotlikni e'lon qilib, hamma narsani bankka qaytarasizmi?", 'Объявить банкротство и вернуть всё банку?'),
   raiseMoney: S('Raise money first', 'Avval pul topish', 'Сначала найти деньги'),
   notNow: S('Not now', 'Hozir emas', 'Не сейчас'),
   buyLaterHint: S(
@@ -259,9 +279,9 @@ export const STRINGS = {
   noTradeable: S('No tradeable assets.', "Savdo qilish mumkin bo'lgan aktivlar yo'q.", 'Нет активов для обмена.'),
   // --- Bank / liquidation ---
   bankInstallmentNote: S(
-    'One installment is collected automatically each time you pass or land on START.',
-    "Har safar BOSHLANISH'dan o'tganingizda yoki unga tushganingizda bitta to'lov avtomatik yechib olinadi.",
-    'Один платёж списывается автоматически каждый раз, когда вы проходите или останавливаетесь на СТАРТЕ.'
+    'The whole amount is taken in one payment after the laps below have passed (each pass or landing on START is one lap).',
+    "Butun summa quyidagi aylanalar o'tgach bir marta yechiladi (BOSHLANISH'dan har bir o'tish yoki unga tushish — bitta aylana).",
+    'Вся сумма списывается одним платежом после указанного числа кругов (каждый проход или остановка на СТАРТЕ — один круг).'
   ),
   totalToRepay: S('Total to repay', 'Jami qaytariladigan summa', 'Всего к возврату'),
   sellDevLevels: S('Sell development levels', "Rivojlanish darajalarini sotish", 'Продать уровни развития'),
@@ -282,17 +302,17 @@ export const STRINGS = {
   theOtherPlayer: S('the other player', "boshqa o'yinchi", 'другой игрок'),
 
   // Toasts
-  toastLoanPaid: {
-    en: 'Loan installment paid: {amount}. {n} left.',
-    uz: "Kredit to'lovi to'landi: {amount}. {n} ta qoldi.",
-    ru: 'Платёж по кредиту внесён: {amount}. Осталось: {n}.',
-    'uz-cyrl': 'Кредит тўлови тўланди: {amount}. {n} та қолди.',
+  toastLoanLap: {
+    en: 'Loan: {n} lap(s) left, then {amount} is taken at once.',
+    uz: "Kredit: {n} aylana qoldi, keyin {amount} birdaniga yechiladi.",
+    ru: 'Кредит: осталось кругов: {n}, затем сразу спишут {amount}.',
+    'uz-cyrl': 'Кредит: {n} айлана қолди, кейин {amount} бирданига ечилади.',
   },
-  toastLoanPaidOff: {
-    en: 'Loan fully paid off with a final installment of {amount}.',
-    uz: "Kredit to'liq yopildi, oxirgi to'lov: {amount}.",
-    ru: 'Кредит полностью погашен последним платежом {amount}.',
-    'uz-cyrl': 'Кредит тўлиқ ёпилди, охирги тўлов: {amount}.',
+  toastLoanPaid: {
+    en: 'Loan matured: the bank took {amount} in one payment.',
+    uz: "Kredit muddati tugadi: bank {amount} ni bir marta yechib oldi.",
+    ru: 'Срок кредита вышел: банк разом списал {amount}.',
+    'uz-cyrl': 'Кредит муддати тугади: банк {amount} ни бир марта ечиб олди.',
   },
   toastForeclosed: {
     en: 'The bank foreclosed on {name}: the mortgage deadline passed.',

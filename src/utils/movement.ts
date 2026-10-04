@@ -3,9 +3,9 @@ import type { GameState } from '../game/types';
 
 /** Time one hop takes. Long trips (transport, jail) hop faster so they never drag. */
 export function hopStepMs(steps: number): number {
-  if (steps > 14) return 120;
-  if (steps > 8) return 170;
-  return 230;
+  if (steps > 14) return 80;
+  if (steps > 8) return 105;
+  return 140;
 }
 
 /** Pause after the last hop so the player sees the pawn arrive before anything resolves. */

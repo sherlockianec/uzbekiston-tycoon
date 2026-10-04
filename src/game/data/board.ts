@@ -8,11 +8,11 @@ import { PROPERTIES, INFRASTRUCTURE, UTILITIES, TAXES } from './properties';
 //
 // index 0            -> start corner (bottom-right)
 // index 1-9          -> bottom row, right to left
-// index 10           -> detention corner (bottom-left)
+// index 10           -> rest corner / Chorsu Choyxona (bottom-left)
 // index 11-19        -> left column, bottom to top
-// index 20           -> rest corner (top-left)
+// index 20           -> senior-official (bribe) corner (top-left)
 // index 21-29        -> top row, left to right
-// index 30           -> senior-official (bribe) corner (top-right)
+// index 30           -> detention corner / Tax Inspection (top-right)
 // index 31-39        -> right column, top to bottom
 
 interface Slot {
@@ -31,7 +31,7 @@ const SLOTS: Slot[] = [
   { id: 'business-card-1', kind: 'card-business' }, // 7
   { id: 'havas', kind: 'property' }, // 8
   { id: 'makro', kind: 'property' }, // 9
-  { id: 'detention', kind: 'corner-detention' }, // 10
+  { id: 'rest', kind: 'corner-rest' }, // 10
   { id: 'mobiuz', kind: 'property' }, // 11
   { id: 'uzbekneftegaz', kind: 'utility' }, // 12
   { id: 'ucell', kind: 'property' }, // 13
@@ -41,7 +41,7 @@ const SLOTS: Slot[] = [
   { id: 'mahalla-card-2', kind: 'card-mahalla' }, // 17
   { id: 'payme', kind: 'property' }, // 18
   { id: 'uzum', kind: 'property' }, // 19
-  { id: 'rest', kind: 'corner-rest' }, // 20
+  { id: 'bribe-official', kind: 'corner-bribe' }, // 20
   { id: 'agrobank', kind: 'property' }, // 21
   { id: 'business-card-2', kind: 'card-business' }, // 22
   { id: 'hamkorbank', kind: 'property' }, // 23
@@ -51,7 +51,7 @@ const SLOTS: Slot[] = [
   { id: 'enter-engineering', kind: 'property' }, // 27
   { id: 'uzbekenergo', kind: 'utility' }, // 28
   { id: 'akfa', kind: 'property' }, // 29
-  { id: 'bribe-official', kind: 'corner-bribe' }, // 30
+  { id: 'detention', kind: 'corner-detention' }, // 30
   { id: 'uzmetkombinat', kind: 'property' }, // 31
   { id: 'almalyk-mmc', kind: 'property' }, // 32
   { id: 'mahalla-card-3', kind: 'card-mahalla' }, // 33
@@ -116,7 +116,15 @@ export function spaceById(id: string): BoardSpace {
   return space;
 }
 
-export function spaceLabel(space: BoardSpace): { name: string; nameUz: string; nameRu: string; nameUzCyrl: string } {
+export interface SpaceLabel {
+  id?: string;
+  name: string;
+  nameUz: string;
+  nameRu?: string;
+  nameUzCyrl?: string;
+}
+
+export function spaceLabel(space: BoardSpace): SpaceLabel {
   switch (space.kind) {
     case 'property':
       return withFallback(PROPERTIES[space.id]);
@@ -137,8 +145,10 @@ export function spaceLabel(space: BoardSpace): { name: string; nameUz: string; n
   }
 }
 
-function withFallback(def: { name: string; nameUz: string; nameRu?: string; nameUzCyrl?: string }) {
-  return { name: def.name, nameUz: def.nameUz, nameRu: def.nameRu ?? def.name, nameUzCyrl: def.nameUzCyrl ?? def.nameUz };
+/** Keeps the id and leaves missing Russian / Cyrillic names undefined, so `localized()` can apply
+ * the Russian overrides and the brand-safe Uzbek Cyrillic conversion itself. */
+function withFallback(def: { id?: string; name: string; nameUz: string; nameRu?: string; nameUzCyrl?: string }): SpaceLabel {
+  return { id: def.id, name: def.name, nameUz: def.nameUz, nameRu: def.nameRu, nameUzCyrl: def.nameUzCyrl };
 }
 
 /** Nearest space of a given kind at or after `fromIndex`, wrapping around the board. */

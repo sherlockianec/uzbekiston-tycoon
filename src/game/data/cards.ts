@@ -162,7 +162,7 @@ export const MAHALLA_CARDS: CardDef[] = [
     title: 'Payment Holiday',
     titleUz: "To'lov imtiyozi",
     text: 'The bank grants you more time. If you have a loan, it gets one extra lap to be repaid (same total, smaller instalments).',
-    effect: { type: 'extendLoanTerm', extraInstallments: 1 },
+    effect: { type: 'extendLoanTerm', extraLaps: 1 },
   },
 ];
 

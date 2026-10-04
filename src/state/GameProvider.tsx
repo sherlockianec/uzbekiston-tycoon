@@ -4,13 +4,16 @@ import { applyCommand, createNewGame, createRng } from '../game/engine';
 import type { Rng } from '../game/engine/random';
 import { decideAiCommand, nextActorId } from '../game/ai/aiPlayer';
 import { loadGame, saveGame, saveSettings } from '../game/persistence';
-import { planMovementHold, reducedMotionPreferred } from '../utils/movement';
+import { hopStepMs, pathSteps, planMovementHold, reducedMotionPreferred } from '../utils/movement';
+import { stepsToStart } from '../components/boardGeometry';
 
 /** A short-lived "+/- money" badge shown next to a player's icon. */
 export interface MoneyFloat {
   id: number;
   playerId: string;
   delta: number;
+  /** 'start': drawn on the START tile (salary / loan maturity) instead of beside the pawn. */
+  anchor?: 'start';
 }
 
 const FLOAT_LIFETIME_MS = 2400;
@@ -49,7 +52,14 @@ export function useActiveGame(): Omit<GameContextValue, 'state'> & { state: Game
 export function useMoneyFloats(playerId: string): MoneyFloat[] {
   const ctx = useContext(GameContext);
   const all = ctx?.floats;
-  return useMemo(() => (all ?? []).filter((f) => f.playerId === playerId), [all, playerId]);
+  return useMemo(() => (all ?? []).filter((f) => f.playerId === playerId && f.anchor !== 'start'), [all, playerId]);
+}
+
+/** Floats that belong on the START tile. */
+export function useStartFloats(): MoneyFloat[] {
+  const ctx = useContext(GameContext);
+  const all = ctx?.floats;
+  return useMemo(() => (all ?? []).filter((f) => f.anchor === 'start'), [all]);
 }
 
 export function GameProvider({ children }: { children: React.ReactNode }) {
@@ -65,6 +75,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const floatIdRef = useRef(0);
   const floatTimersRef = useRef<number[]>([]);
   const prevCashRef = useRef<{ game: number; cash: Record<string, number> } | null>(null);
+  const lastMoveSeenRef = useRef<unknown>(null);
+  const startSplitRef = useRef<{ playerId: string; delta: number } | null>(null);
 
   const dispatch = useCallback((command: GameCommand, actingPlayerId?: string) => {
     setState((prev) => {
@@ -147,20 +159,56 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const state = gameState ? (shown && shown.createdAt === gameState.createdAt ? shown : gameState) : null;
 
   // Floating "+100 000 / -100 000" badges: one per player whose cash changed in what is shown.
+  // Money earned/lost by crossing START is split off and drawn ON the START tile at the moment
+  // the pawn crosses it, not when the pawn finishes walking.
   useEffect(() => {
     if (!state) {
       prevCashRef.current = null;
+      lastMoveSeenRef.current = null;
+      startSplitRef.current = null;
       return;
     }
     const cash: Record<string, number> = {};
     for (const p of state.players) cash[p.id] = p.cash;
     const prev = prevCashRef.current;
     prevCashRef.current = { game: state.createdAt, cash };
-    if (!prev || prev.game !== state.createdAt) return;
+    if (!prev || prev.game !== state.createdAt) {
+      lastMoveSeenRef.current = state.lastMove;
+      startSplitRef.current = null;
+      return;
+    }
+
+    const lm = state.lastMove;
+    if (lm && lm !== lastMoveSeenRef.current) {
+      lastMoveSeenRef.current = lm;
+      if (lm.crossedStart && lm.startDelta !== 0 && !lm.backward) {
+        const walking = busyRef.current;
+        const total = pathSteps(lm.from, lm.to, false);
+        const delay = walking ? stepsToStart(lm.from) * hopStepMs(total) : 0;
+        startSplitRef.current = { playerId: lm.playerId, delta: lm.startDelta };
+        const id = ++floatIdRef.current;
+        const mover = lm.playerId;
+        const amount = lm.startDelta;
+        floatTimersRef.current.push(
+          window.setTimeout(() => {
+            setFloats((f) => [...f, { id, playerId: mover, delta: amount, anchor: 'start' as const }].slice(-12));
+            floatTimersRef.current.push(window.setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), FLOAT_LIFETIME_MS));
+          }, delay)
+        );
+      }
+    } else if (lm !== lastMoveSeenRef.current) {
+      lastMoveSeenRef.current = lm;
+    }
+
     const added: MoneyFloat[] = [];
     for (const p of state.players) {
       if (p.bankrupt) continue;
-      const delta = p.cash - (prev.cash[p.id] ?? p.cash);
+      let delta = p.cash - (prev.cash[p.id] ?? p.cash);
+      const split = startSplitRef.current;
+      if (split && split.playerId === p.id && delta !== 0) {
+        delta -= split.delta;
+        startSplitRef.current = null;
+      }
       if (delta !== 0) added.push({ id: ++floatIdRef.current, playerId: p.id, delta });
     }
     if (added.length === 0) return;

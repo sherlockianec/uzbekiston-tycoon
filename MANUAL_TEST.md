@@ -52,3 +52,18 @@ each box. Do it once on desktop and once on a phone (or a narrow browser window)
 3. Tab through the screen with the keyboard: every button shows a gold focus ring.
 4. Switch all 4 languages on phone and desktop: no text pokes out of dialogs, buttons or panels. (Board tiles on a phone are still too small for long names - Stage 2.)
 5. Turn on your device's "reduce motion": dialogs and toasts appear without sliding.
+
+
+## v1.2 batch 2 checks
+1. Board fills the window; tile text is readable at 100% zoom with no scrolling (desktop) and the middle holds players, dice and all buttons.
+2. Each colour group is one solid colour (Click/Payme/Uzum all pink); owned tiles show the owner's name and rent.
+3. Corners: Chorsu Choyxona bottom-left, Senior Official top-left, Tax Inspection top-right.
+4. End a turn on the choyxona: next turn has no Roll button, End Turn works. Walking over it does nothing.
+5. Roll onto a transport asset you own (or just bought): "Travel" appears; use it once. Arrive on another station by travel: no second trip. Next turn: not available.
+6. Take a 10 000 000 loan: after 3 START passes 13 000 000 leaves once (a toast announces each lap).
+7. Land on rent you cannot pay: the owner gets it all, you go negative, Roll/End Turn disappear until you are >= 0. Bankruptcy frees your properties.
+8. Stop on an unowned property without buying, end the turn; next turn Buy is there before you roll.
+9. "+1 500 000" appears ON the START tile when the pawn crosses it, not where it stops.
+10. Settings > Theme > Light: every screen readable; dice and tiles still clear.
+11. Uzbek (Cyrillic): Click, Payme, Uzum, Korzinka... stay in Latin letters.
+12. Phone: board scrolls/zooms with +/-, action bar sits at the bottom.

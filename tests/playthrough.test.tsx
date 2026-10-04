@@ -9,7 +9,7 @@ import BuildModal from '../src/components/BuildModal';
 import BankModal from '../src/components/BankModal';
 import BribeModal from '../src/components/BribeModal';
 import NetworkTravelModal from '../src/components/NetworkTravelModal';
-import LiquidationModal from '../src/components/LiquidationModal';
+import NegativeBalanceModal from '../src/components/NegativeBalanceModal';
 import CardModal from '../src/components/CardModal';
 import EndGameModal from '../src/components/EndGameModal';
 import TradeModal from '../src/components/TradeModal';
@@ -55,7 +55,7 @@ function collectSnapshots(seed: number) {
   s = {
     ...s,
     players: s.players.map((p, i) =>
-      i === 0 ? { ...p, isAI: false, loan: { principal: 3_000_000, installmentAmount: 1_300_000, installmentsLeft: 3 } } : p
+      i === 0 ? { ...p, isAI: false, loan: { principal: 3_000_000, dueAmount: 3_900_000, lapsLeft: 3 } } : p
     ),
   };
   const snaps: { state: GameState; step: number }[] = [];
@@ -64,9 +64,10 @@ function collectSnapshots(seed: number) {
   let step = 0;
   while (s.phase !== 'GAME_OVER' && step < 4000) {
     const actorId = nextActorId(s)!;
-    const interesting = s.phase !== 'AWAITING_ROLL' && !phases.has(s.phase + (s.pendingDebt?.kind ?? ''));
+    const key = s.phase + (s.players[s.currentPlayerIndex].cash < 0 ? 'negative' : '');
+    const interesting = (s.phase !== 'AWAITING_ROLL' || key.endsWith('negative')) && !phases.has(key);
     if (interesting || step % 29 === 0 || s.notices.length > 0) {
-      if (interesting) phases.add(s.phase + (s.pendingDebt?.kind ?? ''));
+      if (interesting) phases.add(key);
       if (s.notices.length) sawNotice.v = true;
       snaps.push({ step, state: s });
     }
@@ -89,10 +90,11 @@ describe('simulated playthroughs rendered in every language', () => {
 
   it('the sampled games reached every interesting phase (so the render coverage is real)', () => {
     const all = new Set(runs.flatMap((r) => [...r.phases]));
-    for (const phase of ['AWAITING_PURCHASE_DECISION', 'AWAITING_CARD_ACK', 'AWAITING_LIQUIDATION', 'AWAITING_TRADE_RESPONSE', 'GAME_OVER']) {
+    for (const phase of ['AWAITING_PURCHASE_DECISION', 'AWAITING_CARD_ACK', 'AWAITING_TRADE_RESPONSE', 'GAME_OVER']) {
       expect([...all].some((p) => p.startsWith(phase)), `never reached ${phase}`).toBe(true);
     }
-    expect(runs.some((r) => r.sawNotice)).toBe(true); // loan/foreclosure toasts were on screen at least once
+    expect(runs.some((r) => r.sawNotice)).toBe(true);
+    expect([...all].some((p) => p.endsWith('negative'))).toBe(true); // loan/foreclosure toasts were on screen at least once
   });
 
   it('GameScreen renders every sampled state in all 4 languages without junk', () => {
@@ -135,7 +137,7 @@ describe('every modal in every language', () => {
     s = {
       ...s,
       players: s.players.map((p, i) =>
-        i === 0 ? { ...p, position: 5, loan: { principal: 3_000_000, installmentAmount: 1_300_000, installmentsLeft: 2 } } : p
+        i === 0 ? { ...p, position: 5, loan: { principal: 3_000_000, dueAmount: 2_600_000, lapsLeft: 2 } } : p
       ),
     };
     return s;
@@ -161,7 +163,7 @@ describe('every modal in every language', () => {
           },
           <TradeModal key="tr" actorId={me} onClose={noop} />,
         ],
-        ['Liquidation', { ...s, phase: 'AWAITING_LIQUIDATION', pendingDebt: { amount: 9_000_000, payeeId: other, reason: 'rent', kind: 'rent' } } as GameState, <LiquidationModal key="l" actorId={me} />],
+        ['Negative balance', { ...s, players: s.players.map((p, i) => (i === 0 ? { ...p, cash: -9_000_000 } : p)) } as GameState, <NegativeBalanceModal key="l" actorId={me} onSetAside={noop} onOpenBank={noop} onOpenTrade={noop} />],
         ['Inspector (property)', s, <PropertyInspector key="p1" spaceId="chorsu-bazaar" actorId={me} onClose={noop} />],
         ['Inspector (mortgaged)', s, <PropertyInspector key="p2" spaceId="korzinka" actorId={me} onClose={noop} />],
         ['Inspector (infra)', s, <PropertyInspector key="p3" spaceId="uzbekistan-railways" actorId={me} onClose={noop} />],

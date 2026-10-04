@@ -15,3 +15,10 @@ export function formatSomDelta(amount: number): string {
   const prefix = amount > 0 ? '+' : '';
   return `${prefix}${formatSom(amount)}`;
 }
+
+/** Space-grouped digits with no currency suffix ("2 500 000"), for tight places such as board tiles. */
+export function formatNumber(amount: number): string {
+  const rounded = Math.round(amount);
+  const sign = rounded < 0 ? '\u2212' : '';
+  return sign + Math.abs(rounded).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}

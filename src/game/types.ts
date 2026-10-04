@@ -19,6 +19,7 @@ export interface Settings {
   animations: boolean;
   aiSpeedMs: number; // delay between automatic AI actions
   language: Language;
+  theme?: 'dark' | 'light';
 }
 
 // --- Board -----------------------------------------------------------------
@@ -111,7 +112,7 @@ export type CardEffect =
   | { type: 'advanceToNearestGroup'; groupId: string; collectIfPassed: boolean }
   | { type: 'reduceLoanBalance'; percent: number }
   | { type: 'forgiveLoan' }
-  | { type: 'extendLoanTerm'; extraInstallments: number }
+  | { type: 'extendLoanTerm'; extraLaps: number }
   | { type: 'taxImmunity' }
   | { type: 'purchaseDiscount'; percent: number };
 
@@ -137,10 +138,13 @@ export interface OwnershipState {
   mortgageLapsRemaining: number | null;
 }
 
+/** One lump-sum loan: the whole `dueAmount` (principal + interest) is taken
+ * from the player's cash in a single payment when `lapsLeft` reaches 0, i.e. on
+ * the Nth time they pass START after borrowing. */
 export interface Loan {
   principal: number;
-  installmentAmount: number;
-  installmentsLeft: number;
+  dueAmount: number;
+  lapsLeft: number;
 }
 
 export interface Player {
@@ -162,6 +166,9 @@ export interface Player {
   /** Percent off the next property purchase, if any (sticky card buff). */
   purchaseDiscountPercent: number | null;
   bankrupt: boolean;
+  /** Ended their last turn on the Chorsu Choyxona: this turn they do not roll
+   * (they may still buy, build, trade and so on, then end the turn). */
+  resting: boolean;
   /** Set the moment this player goes bankrupt (1st out, 2nd out, ...). Null
    * while still in the game. Used to rank the end-game leaderboard. */
   bankruptOrder: number | null;
@@ -174,7 +181,6 @@ export type GamePhase =
   | 'AWAITING_PURCHASE_DECISION'
   | 'AWAITING_CARD_ACK'
   | 'AWAITING_TRADE_RESPONSE'
-  | 'AWAITING_LIQUIDATION'
   | 'GAME_OVER';
 
 export interface TradeOffer {
@@ -189,13 +195,6 @@ export interface TradeOffer {
   requestReleasePapers: number;
 }
 
-export interface PendingDebt {
-  amount: number;
-  payeeId: string | 'BANK';
-  reason: string;
-  kind: 'rent' | 'tax' | 'card' | 'loan';
-}
-
 export interface BribeResult {
   outcome: 'gain' | 'loss' | 'jail';
   amount: number;
@@ -204,11 +203,11 @@ export interface BribeResult {
 /** A short, human-facing event the UI shows as a toast (the log still records it too). */
 export interface GameNotice {
   id: string;
-  kind: 'loanPaid' | 'foreclosed';
+  kind: 'loanPaid' | 'loanLap' | 'foreclosed';
   playerId: string;
-  /** loanPaid: the installment; foreclosed: the asset's unmortgage cost. */
+  /** loanPaid: the amount taken at maturity; loanLap: the amount due; foreclosed: the asset's unmortgage cost. */
   amount: number;
-  /** loanPaid: installments still to pay (0 = loan paid off). */
+  /** loanLap: laps still to go before the loan falls due. */
   remaining: number;
   /** foreclosed: which asset the bank took. */
   spaceId?: string;
@@ -222,6 +221,11 @@ export interface MoveInfo {
   to: number;
   backward: boolean;
   kind: 'walk' | 'travel' | 'jail' | 'card';
+  /** True when the move crossed (or landed on) START and paid the salary. */
+  crossedStart: boolean;
+  /** Net cash change the mover got from crossing START (salary minus any loan
+   * that fell due on that very lap). Lets the UI show it when the pawn crosses. */
+  startDelta: number;
 }
 
 export interface LogEntry {
@@ -255,10 +259,13 @@ export interface GameState {
   businessDeck: string[];
   businessDiscard: string[];
   trade: TradeOffer | null;
-  pendingDebt: PendingDebt | null;
   log: LogEntry[];
   turnNumber: number;
   networkTravelUsed: boolean;
+  /** True only right after the mover's own dice roll ended on a transport
+   * asset. Being carried there by a card or by travel, or just standing there
+   * at the start of a later turn, gives no travel. */
+  networkTravelEligible: boolean;
   bribeGambleUsedThisTurn: boolean;
   /** Set once anyone proposes a trade this turn; stops AI from re-proposing repeatedly. */
   tradeProposedThisTurn: boolean;
@@ -269,8 +276,6 @@ export interface GameState {
   settings: Settings;
   /** Last token move (UI animation hint only). Optional so older saves still load. */
   lastMove?: MoveInfo | null;
-  /** Phase to return to when a trade started during forced liquidation ends. */
-  tradeReturnPhase?: GamePhase | null;
 }
 
 // --- Commands (the only way to mutate GameState) ------------------------------
@@ -290,12 +295,9 @@ export type GameCommand =
   | { type: 'PROPOSE_TRADE'; offer: Omit<TradeOffer, 'id'> }
   | { type: 'RESPOND_TRADE'; accept: boolean }
   | { type: 'CANCEL_TRADE' }
-  | { type: 'LIQUIDATE_MORTGAGE'; spaceId: string }
-  | { type: 'LIQUIDATE_SELL_DEVELOPMENT'; spaceId: string }
   | { type: 'DECLARE_BANKRUPTCY' }
   | { type: 'TAKE_LOAN'; amount: number }
   | { type: 'REPAY_LOAN_EARLY' }
-  | { type: 'PAY_DEBT' }
   | { type: 'TRAVEL_NETWORK'; targetSpaceId: string }
   | { type: 'ATTEMPT_BRIBE' }
   | { type: 'DISMISS_BRIBE_RESULT' }

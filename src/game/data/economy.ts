@@ -32,14 +32,16 @@ export const MORTGAGE_DEADLINE_LAPS = 6;
 /** UI shows a warning once this many laps (or fewer) remain. */
 export const MORTGAGE_WARNING_LAPS = 2;
 
-// Bank loans: borrow up to MAX_LOAN_AMOUNT, repaid over the next
-// LOAN_INSTALLMENTS times you complete a lap of the board (pass/land on
-// START), with LOAN_INTEREST_PERCENT total interest spread across those
+// Bank loans: borrow up to MAX_LOAN_AMOUNT, repaid in one lump sum
+// after LOAN_LAPS laps of the board (pass/land on START), with
+// LOAN_INTEREST_PERCENT total interest added on top.
+// (old note:
 // installments.
 export const MAX_LOAN_AMOUNT = 10_000_000;
 export const MIN_LOAN_AMOUNT = 500_000;
 export const LOAN_INTEREST_PERCENT = 30;
-export const LOAN_INSTALLMENTS = 3;
+/** A loan is repaid in ONE lump sum when this many START passes have gone by. */
+export const LOAN_LAPS = 3;
 
 // "Local Official" — a mandatory flat cost when you land on this space; no
 // choice involved, same spirit as a toll.

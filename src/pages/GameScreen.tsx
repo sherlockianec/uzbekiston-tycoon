@@ -2,38 +2,46 @@ import { useEffect, useRef, useState } from 'react';
 import { useActiveGame } from '../state/GameProvider';
 import { nextActorId } from '../game/ai/aiPlayer';
 import Board from '../components/Board';
-import { PlayerList, MyProperties } from '../components/PlayerPanel';
+import { MyProperties } from '../components/PlayerPanel';
 import ActionBar from '../components/ActionBar';
+import CentreDashboard from '../components/CentreDashboard';
 import GameLog from '../components/GameLog';
 import PropertyInspector from '../components/PropertyInspector';
 import CardModal from '../components/CardModal';
 import TradeModal from '../components/TradeModal';
-import LiquidationModal from '../components/LiquidationModal';
+import NegativeBalanceModal from '../components/NegativeBalanceModal';
 import BuildModal from '../components/BuildModal';
 import BankModal from '../components/BankModal';
 import NetworkTravelModal from '../components/NetworkTravelModal';
 import BribeModal from '../components/BribeModal';
 import NoticeToasts from '../components/NoticeToasts';
+import Icon from '../components/icons/Icon';
 import { LANGUAGE_OPTIONS } from '../components/LanguageSwitcher';
 import EndGameModal from '../components/EndGameModal';
 import { isOwnableId } from '../game/data/properties';
 import { BOARD } from '../game/data/board';
+import { coordsPercent, BOARD_RATIO } from '../components/boardGeometry';
 import { t } from '../i18n/strings';
 import { useSound } from '../hooks/useSound';
+import { useIsNarrow } from '../hooks/useIsNarrow';
 import type { Language } from '../game/types';
 
-const ICON_GEAR = '\u2699\ufe0f';
-const ICON_CLOSE = '\u2716';
+type OverlayModal = 'none' | 'trade' | 'build' | 'bank' | 'network' | 'bribe' | 'settings' | 'properties' | 'log';
 
-type OverlayModal = 'none' | 'trade' | 'build' | 'bank' | 'network' | 'bribe' | 'settings';
+/** Width of the board on phones at zoom 1: wide enough that tile text is readable, then panned. */
+const PHONE_BOARD_WIDTH = 980;
+const ZOOM_MIN = 0.7;
+const ZOOM_MAX = 1.8;
 
 export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void; onPlayAgain: () => void }) {
   const { state, quitToMenu, busy } = useActiveGame();
   const lang = state.settings.language;
+  const narrow = useIsNarrow();
   const currentPlayer = state.players[state.currentPlayerIndex];
 
   const [selectedSpace, setSelectedSpace] = useState<string | null>(null);
   const [overlay, setOverlay] = useState<OverlayModal>('none');
+  const [zoom, setZoom] = useState(1);
 
   const actorId = nextActorId(state) ?? currentPlayer.id;
   const actor = state.players.find((p) => p.id === actorId) ?? currentPlayer;
@@ -43,28 +51,28 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
   const humanMustDecide = state.phase === 'AWAITING_PURCHASE_DECISION' && isLocalHumanActing;
   const humanMustAckCard = state.phase === 'AWAITING_CARD_ACK' && isLocalHumanActing;
   const inTradeResponse = state.phase === 'AWAITING_TRADE_RESPONSE' && state.trade?.toId === actorId;
-  const humanMustLiquidate = state.phase === 'AWAITING_LIQUIDATION' && isLocalHumanActing;
+  const negativeBalance = isLocalHumanActing && state.phase === 'AWAITING_ROLL' && actor.cash < 0;
   const gameOver = state.phase === 'GAME_OVER';
 
-  // Debt does not force bankruptcy: the dialog can be set aside to use the
-  // bank, trading and so on, and is re-opened from the action bar.
+  // A negative balance does not trap you: the dialog can be set aside to use the bank,
+  // trading and so on, and is re-opened from the action bar.
   const [debtOpen, setDebtOpen] = useState(true);
-  const prevPhaseRef = useRef(state.phase);
+  const wasNegativeRef = useRef(false);
   useEffect(() => {
-    if (state.phase === 'AWAITING_LIQUIDATION' && prevPhaseRef.current !== 'AWAITING_LIQUIDATION') setDebtOpen(true);
-    prevPhaseRef.current = state.phase;
-  }, [state.phase]);
+    if (negativeBalance && !wasNegativeRef.current) setDebtOpen(true);
+    wasNegativeRef.current = negativeBalance;
+  }, [negativeBalance]);
 
   // Standing on the Senior Official cell: offer the (optional) bribe once per landing.
   const bribePromptedRef = useRef<string | null>(null);
   const onBribeCell = BOARD[actor.position]?.kind === 'corner-bribe';
   const landingKey = `${state.turnNumber}:${actor.position}:${state.dice ? state.dice.join('-') : ''}`;
   useEffect(() => {
-    if (!isLocalHumanActing || state.phase !== 'AWAITING_ROLL' || !state.hasRolledThisTurn) return;
+    if (!isLocalHumanActing || state.phase !== 'AWAITING_ROLL' || !state.hasRolledThisTurn || actor.cash < 0) return;
     if (!onBribeCell || state.bribeGambleUsedThisTurn || bribePromptedRef.current === landingKey) return;
     bribePromptedRef.current = landingKey;
     setOverlay('bribe');
-  }, [isLocalHumanActing, state.phase, state.hasRolledThisTurn, state.bribeGambleUsedThisTurn, onBribeCell, landingKey]);
+  }, [isLocalHumanActing, state.phase, state.hasRolledThisTurn, state.bribeGambleUsedThisTurn, onBribeCell, landingKey, actor.cash]);
 
   // Auto-close the trade overlay once a proposed trade actually resolves.
   const sawTradeRef = useRef(false);
@@ -78,12 +86,6 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     if (!tradeOpen) sawTradeRef.current = false;
   }, [state.trade, overlay]);
 
-  // If a bribe attempt's loss couldn't be covered, liquidation takes over —
-  // close the bribe overlay immediately so it doesn't linger and reopen later.
-  useEffect(() => {
-    if (state.phase === 'AWAITING_LIQUIDATION' && overlay === 'bribe') setOverlay('none');
-  }, [state.phase, overlay]);
-
   // Lightweight sound cues driven off the newest log line.
   const play = useSound(state.settings.sound);
   const lastLogIdRef = useRef<string | null>(null);
@@ -96,6 +98,21 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     else if (/paid|mortgaged/.test(last.text)) play('cash-out');
     else if (/collected|settled|took a loan/.test(last.text)) play('cash-in');
   }, [state.log, play]);
+
+  // Phones: keep the active pawn in view as it moves (the board is bigger than the screen).
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const followPos = state.players[state.currentPlayerIndex]?.position ?? 0;
+  useEffect(() => {
+    const box = scrollRef.current;
+    if (!narrow || !box) return;
+    const width = PHONE_BOARD_WIDTH * zoom;
+    const height = width / BOARD_RATIO;
+    const { left, top } = coordsPercent(followPos);
+    const x = (left / 100) * width - box.clientWidth / 2;
+    const y = (top / 100) * height - box.clientHeight / 2;
+    box.scrollTo({ left: Math.max(0, x), top: Math.max(0, y), behavior: state.settings.animations ? 'smooth' : 'auto' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [narrow, followPos, state.currentPlayerIndex]);
 
   function handleSelectSpace(spaceId: string) {
     if (humanMustDecide) return;
@@ -112,44 +129,47 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     onPlayAgain();
   }
 
+  const openers = {
+    onOpenTrade: () => setOverlay('trade'),
+    onOpenBuild: () => setOverlay('build'),
+    onOpenBank: () => setOverlay('bank'),
+    onOpenNetworkTravel: () => setOverlay('network'),
+    onOpenBribe: () => setOverlay('bribe'),
+    onOpenDebt: () => setDebtOpen(true),
+  };
+
+  const centre = (
+    <CentreDashboard
+      {...openers}
+      onOpenProperties={() => setOverlay('properties')}
+      onOpenLog={() => setOverlay('log')}
+      onOpenSettings={() => setOverlay('settings')}
+      onQuit={handleQuit}
+      showActions={!narrow}
+    />
+  );
+
   return (
-    <div className="game-screen">
-      <div className="game-screen__left scroll-y">
-        <MyProperties state={state} playerId={currentPlayer.id} onSelectSpace={setSelectedSpace} />
+    <div className={`game-screen${narrow ? ' game-screen--narrow' : ''}`}>
+      <div className="game-screen__board" ref={scrollRef}>
+        <Board state={state} onSelectSpace={handleSelectSpace} centre={centre} fixedWidth={narrow ? PHONE_BOARD_WIDTH * zoom : undefined} />
       </div>
 
-      <div className="game-screen__board">
-        <Board state={state} onSelectSpace={handleSelectSpace} />
-      </div>
-
-      <div className="game-screen__right">
-        <div className="flex-row" style={{ justifyContent: 'space-between' }}>
-          <span className="eyebrow">
-            {t('round', lang)} {state.turnNumber}
-          </span>
-          <div className="flex-row">
-            <button className="icon-btn" onClick={() => setOverlay('settings')} title={t('settings', lang)}>
-              {ICON_GEAR}
+      {narrow && (
+        <>
+          <div className="zoom-controls">
+            <button className="icon-btn" aria-label={t('zoomIn', lang)} title={t('zoomIn', lang)} onClick={() => setZoom((z) => Math.min(ZOOM_MAX, +(z + 0.2).toFixed(2)))}>
+              <Icon name="plus" />
             </button>
-            <button className="icon-btn" onClick={handleQuit} title={t('quitToMenu', lang)}>
-              {ICON_CLOSE}
+            <button className="icon-btn" aria-label={t('zoomOut', lang)} title={t('zoomOut', lang)} onClick={() => setZoom((z) => Math.max(ZOOM_MIN, +(z - 0.2).toFixed(2)))}>
+              <Icon name="minus" />
             </button>
           </div>
-        </div>
-        <PlayerList state={state} />
-        <GameLog />
-      </div>
-
-      <div className="game-screen__actions">
-        <ActionBar
-          onOpenTrade={() => setOverlay('trade')}
-          onOpenBuild={() => setOverlay('build')}
-          onOpenBank={() => setOverlay('bank')}
-          onOpenNetworkTravel={() => setOverlay('network')}
-          onOpenBribe={() => setOverlay('bribe')}
-          onOpenDebt={() => setDebtOpen(true)}
-        />
-      </div>
+          <div className="game-screen__actions">
+            <ActionBar {...openers} variant="bar" />
+          </div>
+        </>
+      )}
 
       {selectedSpace && !humanMustDecide && (
         <PropertyInspector spaceId={selectedSpace} actorId={actorId} onClose={() => setSelectedSpace(null)} />
@@ -162,11 +182,38 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
       {overlay === 'build' && isLocalHumanActing && <BuildModal actorId={actorId} onClose={() => setOverlay('none')} />}
       {overlay === 'bank' && isLocalHumanActing && <BankModal actorId={actorId} onClose={() => setOverlay('none')} />}
       {overlay === 'network' && isLocalHumanActing && <NetworkTravelModal actorId={actorId} onClose={() => setOverlay('none')} />}
-      {overlay === 'bribe' && isLocalHumanActing && state.phase !== 'AWAITING_LIQUIDATION' && (
-        <BribeModal actorId={actorId} onClose={() => setOverlay('none')} />
+      {overlay === 'bribe' && isLocalHumanActing && actor.cash >= 0 && <BribeModal actorId={actorId} onClose={() => setOverlay('none')} />}
+      {negativeBalance && debtOpen && overlay === 'none' && (
+        <NegativeBalanceModal
+          actorId={actorId}
+          onSetAside={() => setDebtOpen(false)}
+          onOpenBank={() => setOverlay('bank')}
+          onOpenTrade={() => setOverlay('trade')}
+        />
       )}
-      {humanMustLiquidate && debtOpen && overlay === 'none' && (
-        <LiquidationModal actorId={actorId} onSetAside={() => setDebtOpen(false)} />
+      {overlay === 'properties' && (
+        <div className="modal-overlay" onClick={() => setOverlay('none')}>
+          <div className="panel panel--gold-edge modal modal--wide" onClick={(e) => e.stopPropagation()}>
+            <MyProperties state={state} playerId={actor.isAI ? currentPlayer.id : actorId} onSelectSpace={(id) => { setOverlay('none'); setSelectedSpace(id); }} />
+            <div className="modal__actions">
+              <button className="btn btn--primary" onClick={() => setOverlay('none')}>
+                {t('close', lang)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {overlay === 'log' && (
+        <div className="modal-overlay" onClick={() => setOverlay('none')}>
+          <div className="modal modal--wide modal--log" onClick={(e) => e.stopPropagation()}>
+            <GameLog />
+            <div className="modal__actions">
+              <button className="btn btn--primary" onClick={() => setOverlay('none')}>
+                {t('close', lang)}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <NoticeToasts />
       {gameOver && <EndGameModal onPlayAgain={handlePlayAgain} onReturnToMenu={handleQuit} />}
@@ -193,6 +240,13 @@ function SettingsPopover({ onClose }: { onClose: () => void }) {
             checked={state.settings.animations}
             onChange={(e) => updateSettings({ animations: e.target.checked })}
           />
+        </div>
+        <div className="modal__row">
+          <span>{t('theme', lang)}</span>
+          <select value={state.settings.theme ?? 'dark'} onChange={(e) => updateSettings({ theme: e.target.value as 'dark' | 'light' })}>
+            <option value="dark">{t('themeDark', lang)}</option>
+            <option value="light">{t('themeLight', lang)}</option>
+          </select>
         </div>
         <div className="modal__row">
           <span>{t('language', lang)}</span>

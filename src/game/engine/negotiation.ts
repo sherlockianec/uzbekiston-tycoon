@@ -1,4 +1,4 @@
-import type { GamePhase, GameState, TradeOffer } from '../types';
+import type { GameState, TradeOffer } from '../types';
 import { formatSom } from '../../utils/currency';
 import { appendLog, getPlayer, ownableDef, updateOwnership, updatePlayer } from './helpers';
 
@@ -10,13 +10,11 @@ export function proposeTrade(state: GameState, offer: Omit<TradeOffer, 'id'>): G
     state,
     `${getPlayer(state, offer.fromId).name} proposed a trade to ${getPlayer(state, offer.toId).name}.`
   );
-  // A trade may be opened while paying off a debt; remember to go back there.
-  const returnPhase: GamePhase = state.phase === 'AWAITING_LIQUIDATION' ? 'AWAITING_LIQUIDATION' : 'AWAITING_ROLL';
-  return { ...next, trade, phase: 'AWAITING_TRADE_RESPONSE', tradeReturnPhase: returnPhase };
+  return { ...next, trade, phase: 'AWAITING_TRADE_RESPONSE' };
 }
 
 function afterTrade(state: GameState): GameState {
-  return { ...state, trade: null, phase: state.tradeReturnPhase ?? 'AWAITING_ROLL', tradeReturnPhase: null };
+  return { ...state, trade: null, phase: 'AWAITING_ROLL' };
 }
 
 export function cancelTrade(state: GameState): GameState {

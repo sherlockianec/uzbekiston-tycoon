@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT, LOAN_INTEREST_PERCENT, LOAN_INSTALLMENTS } from '../game/data/economy';
+import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT, LOAN_INTEREST_PERCENT, LOAN_LAPS } from '../game/data/economy';
 import { canTakeLoan } from '../game/engine';
 import { formatSom } from '../utils/currency';
 import { t } from '../i18n/strings';
@@ -23,13 +23,11 @@ export default function BankModal({ actorId, onClose }: { actorId: string; onClo
           <>
             <div className="modal__row">
               <span>{t('loanBalance', lang)}</span>
-              <span className="money">{formatSom(player.loan.installmentAmount * player.loan.installmentsLeft)}</span>
+              <span className="money">{formatSom(player.loan.dueAmount)}</span>
             </div>
             <div className="modal__row">
               <span>{t('installmentsLeft', lang)}</span>
-              <span>
-                {player.loan.installmentsLeft} x {formatSom(player.loan.installmentAmount)}
-              </span>
+              <span>{player.loan.lapsLeft}</span>
             </div>
             <p className="text-sm text-muted" style={{ marginTop: 10 }}>
               {t('bankInstallmentNote', lang)}
@@ -40,7 +38,7 @@ export default function BankModal({ actorId, onClose }: { actorId: string; onClo
               </button>
               <CostButton
                 label={t('repayLoanEarly', lang)}
-                cost={player.loan.installmentAmount * player.loan.installmentsLeft}
+                cost={player.loan.dueAmount}
                 cash={player.cash}
                 lang={lang}
                 onClick={() => dispatch({ type: 'REPAY_LOAN_EARLY' }, actorId)}
@@ -66,7 +64,7 @@ export default function BankModal({ actorId, onClose }: { actorId: string; onClo
               <div className="flex-row" style={{ justifyContent: 'space-between', marginTop: 6 }}>
                 <span className="money">{formatSom(amount)}</span>
                 <span className="text-sm text-muted">
-                  +{LOAN_INTEREST_PERCENT}% over {LOAN_INSTALLMENTS} laps
+                  +{LOAN_INTEREST_PERCENT}% after {LOAN_LAPS} laps
                 </span>
               </div>
             </div>

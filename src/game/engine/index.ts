@@ -19,7 +19,7 @@ import {
   unmortgageProperty,
 } from './properties';
 import { cancelTrade, proposeTrade, respondTrade } from './negotiation';
-import { declareBankruptcy, liquidateMortgage, liquidateSellDevelopment, settleDebtIfAffordable } from './liquidation';
+import { declareBankruptcy } from './bankruptcy';
 import { canRepayLoanEarly, canTakeLoan, repayLoanEarly, takeLoan } from './bank';
 
 export { createNewGame, SAVE_VERSION } from './newGame';
@@ -28,7 +28,7 @@ export type { Rng } from './random';
 export * from './properties';
 export * from './helpers';
 export * from './negotiation';
-export * from './liquidation';
+export * from './bankruptcy';
 export * from './turn';
 export * from './bank';
 
@@ -36,15 +36,12 @@ function noop(state: GameState): GameState {
   return state;
 }
 
-/** Resolves the landed-on space, UNLESS the move itself already triggered
- * forced liquidation (e.g. an unaffordable loan installment collected while
- * passing START) — in that case the liquidation flow takes over instead, and
- * resolveLanding must NOT also run (it doesn't know about an in-progress
- * debt and would blindly overwrite phase/pendingDebt for whatever space the
- * player ended up on). */
-function resolveLandingUnlessLiquidating(state: GameState, playerId: string, rng: Rng): GameState {
-  if (state.phase === 'AWAITING_LIQUIDATION') return state;
-  return resolveLanding(state, playerId, rng);
+/** After a DICE move ends, remember whether the token stands on a transport
+ * station - the only situation in which the travel network may be used. */
+function markTravelEligibility(state: GameState, playerId: string): GameState {
+  const p = getPlayer(state, playerId);
+  const onStation = BOARD[p.position].kind === 'infrastructure' && !p.inDetention;
+  return { ...state, networkTravelEligible: onStation };
 }
 
 function validateTradeOffer(state: GameState, offer: Omit<TradeOffer, 'id'>): boolean {
@@ -88,10 +85,12 @@ export function applyCommand(
   switch (command.type) {
     case 'ROLL_DICE': {
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
+      if (acting.cash < 0 || acting.resting) return noop(state); // clear a negative balance first / resting on the choyxona
       const canRoll = !state.hasRolledThisTurn || (state.doublesStreak > 0 && state.doublesStreak < 3);
       if (!canRoll) return noop(state);
       const [d1, d2] = rollDice(rng);
       const player = acting;
+      state = { ...state, networkTravelEligible: false };
 
       if (player.inDetention) {
         const isDoubles = d1 === d2;
@@ -100,11 +99,11 @@ export function applyCommand(
           next = appendLog(next, `${player.name} rolled doubles (${d1}-${d2}) and left Tax Inspection.`);
           next = { ...next, dice: [d1, d2], hasRolledThisTurn: true };
           next = moveForward(next, player.id, d1 + d2);
-          return resolveLandingUnlessLiquidating(next, player.id, rng);
+          return markTravelEligibility(resolveLanding(next, player.id, rng), player.id);
         }
         const turns = player.detentionTurns + 1;
         if (turns >= MAX_DETENTION_TURNS) {
-          const fine = Math.min(player.cash, DETENTION_FINE_SCHEDULE[DETENTION_FINE_SCHEDULE.length - 1]);
+          const fine = DETENTION_FINE_SCHEDULE[DETENTION_FINE_SCHEDULE.length - 1];
           let next = updatePlayer(state, player.id, (p) => ({
             ...p,
             cash: p.cash - fine,
@@ -117,7 +116,7 @@ export function applyCommand(
           );
           next = { ...next, dice: [d1, d2], hasRolledThisTurn: true };
           next = moveForward(next, player.id, d1 + d2);
-          return resolveLandingUnlessLiquidating(next, player.id, rng);
+          return markTravelEligibility(resolveLanding(next, player.id, rng), player.id);
         }
         let next = updatePlayer(state, player.id, (p) => ({ ...p, detentionTurns: turns }));
         next = appendLog(next, `${player.name} rolled ${d1}-${d2} — still in Tax Inspection (${turns}/${MAX_DETENTION_TURNS}).`);
@@ -130,12 +129,12 @@ export function applyCommand(
         let next: GameState = { ...state, dice: [d1, d2], hasRolledThisTurn: true, doublesStreak: 0 };
         next = appendLog(next, `${player.name} rolled doubles a third time in a row and was sent to Tax Inspection.`);
         next = sendToDetention(next, player.id);
-        return next.phase === 'AWAITING_LIQUIDATION' ? next : { ...next, phase: 'AWAITING_ROLL' };
+        return { ...next, phase: 'AWAITING_ROLL' };
       }
       let next: GameState = { ...state, dice: [d1, d2], hasRolledThisTurn: true, doublesStreak: newStreak };
       next = appendLog(next, `${player.name} rolled ${d1}-${d2}${isDoubles ? ' — doubles, roll again after this turn resolves' : ''}.`);
       next = moveForward(next, player.id, d1 + d2);
-      return resolveLandingUnlessLiquidating(next, player.id, rng);
+      return markTravelEligibility(resolveLanding(next, player.id, rng), player.id);
     }
 
     case 'PAY_DETENTION_FINE': {
@@ -172,7 +171,7 @@ export function applyCommand(
       // then buy it from the action bar.
       let spaceId: string | null = null;
       if (state.phase === 'AWAITING_PURCHASE_DECISION') spaceId = state.currentSpaceId;
-      else if (state.phase === 'AWAITING_ROLL' && state.hasRolledThisTurn && !acting.inDetention) {
+      else if (state.phase === 'AWAITING_ROLL' && !acting.inDetention && !acting.resting) {
         const here = BOARD[acting.position];
         if (isOwnableId(here.id)) spaceId = here.id;
       }
@@ -195,8 +194,18 @@ export function applyCommand(
     }
 
     case 'END_TURN': {
-      if (!isCurrent || state.phase !== 'AWAITING_ROLL' || !state.hasRolledThisTurn) return noop(state);
-      const next = appendLog(state, `${acting.name} ended their turn.`);
+      if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
+      if (acting.cash < 0) return noop(state); // must get back to zero or above first
+      if (!state.hasRolledThisTurn && !acting.resting) return noop(state);
+      let next = appendLog(state, `${acting.name} ended their turn.`);
+      if (acting.resting) {
+        // The rest is over: the next turn is a normal one.
+        next = updatePlayer(next, acting.id, (p) => ({ ...p, resting: false }));
+      } else if (BOARD[acting.position].kind === 'corner-rest') {
+        // Ended the turn on the choyxona: skip the dice roll next turn.
+        next = updatePlayer(next, acting.id, (p) => ({ ...p, resting: true }));
+        next = appendLog(next, `${acting.name} sat down at the choyxona and will skip the next roll.`);
+      }
       return advanceTurn(next);
     }
 
@@ -207,15 +216,12 @@ export function applyCommand(
     }
 
     case 'SELL_DEVELOPMENT': {
-      // While in debt this doubles as a way to raise cash (and auto-pays the debt once covered).
-      if (isCurrent && state.phase === 'AWAITING_LIQUIDATION') return liquidateSellDevelopment(state, acting.id, command.spaceId, rng);
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (!canSellDevelopment(state, acting.id, command.spaceId)) return noop(state);
       return sellDevelopment(state, acting.id, command.spaceId);
     }
 
     case 'MORTGAGE': {
-      if (isCurrent && state.phase === 'AWAITING_LIQUIDATION') return liquidateMortgage(state, acting.id, command.spaceId, rng);
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (!canMortgage(state, acting.id, command.spaceId)) return noop(state);
       return mortgageProperty(state, acting.id, command.spaceId);
@@ -228,17 +234,9 @@ export function applyCommand(
     }
 
     case 'TAKE_LOAN': {
-      const inDebt = state.phase === 'AWAITING_LIQUIDATION';
-      if (!isCurrent || (state.phase !== 'AWAITING_ROLL' && !inDebt)) return noop(state);
+      if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (!canTakeLoan(state, acting.id, command.amount)) return noop(state);
-      const loaned = takeLoan(state, acting.id, command.amount);
-      return inDebt ? settleDebtIfAffordable(loaned, acting.id, rng) : loaned;
-    }
-
-    case 'PAY_DEBT': {
-      if (!isCurrent || state.phase !== 'AWAITING_LIQUIDATION' || !state.pendingDebt) return noop(state);
-      if (acting.cash < state.pendingDebt.amount) return noop(state);
-      return settleDebtIfAffordable(state, acting.id, rng);
+      return takeLoan(state, acting.id, command.amount);
     }
 
     case 'REPAY_LOAN_EARLY': {
@@ -248,15 +246,19 @@ export function applyCommand(
     }
 
     case 'TRAVEL_NETWORK': {
+      // Only right after arriving on a station by your own dice roll, only if that
+      // station is owned (bought, or you just paid its rent), once per turn.
       if (!isCurrent || state.phase !== 'AWAITING_ROLL' || state.networkTravelUsed) return noop(state);
+      if (!state.networkTravelEligible || acting.cash < 0) return noop(state);
       const here = BOARD[acting.position];
       if (here.kind !== 'infrastructure') return noop(state);
+      if (!state.ownership[here.id]?.ownerId) return noop(state);
       if (!isInfrastructureId(command.targetSpaceId) || command.targetSpaceId === here.id) return noop(state);
       const target = spaceById(command.targetSpaceId);
       // Always forward around the board, collecting the salary when crossing START.
       let next = moveToTarget(state, acting.id, target.index, true, 'travel');
-      next = { ...next, networkTravelUsed: true };
-      return resolveLandingUnlessLiquidating(next, acting.id, rng);
+      next = { ...next, networkTravelUsed: true, networkTravelEligible: false };
+      return resolveLanding(next, acting.id, rng);
     }
 
     case 'ATTEMPT_BRIBE': {
@@ -277,8 +279,7 @@ export function applyCommand(
     }
 
     case 'PROPOSE_TRADE': {
-      const phaseOk = state.phase === 'AWAITING_ROLL' || state.phase === 'AWAITING_LIQUIDATION';
-      if (!isCurrent || !phaseOk || command.offer.fromId !== acting.id) return noop(state);
+      if (!isCurrent || state.phase !== 'AWAITING_ROLL' || command.offer.fromId !== acting.id) return noop(state);
       if (!validateTradeOffer(state, command.offer)) return noop(state);
       return { ...proposeTrade(state, command.offer), tradeProposedThisTurn: true };
     }
@@ -286,9 +287,7 @@ export function applyCommand(
     case 'RESPOND_TRADE': {
       if (state.phase !== 'AWAITING_TRADE_RESPONSE' || !state.trade) return noop(state);
       if (state.trade.toId !== acting.id) return noop(state);
-      const answered = respondTrade(state, command.accept);
-      // A trade made to raise cash may already cover the debt.
-      return answered.phase === 'AWAITING_LIQUIDATION' ? settleDebtIfAffordable(answered, answered.players[answered.currentPlayerIndex].id, rng) : answered;
+      return respondTrade(state, command.accept);
     }
 
     case 'CANCEL_TRADE': {
@@ -297,18 +296,9 @@ export function applyCommand(
       return cancelTrade(state);
     }
 
-    case 'LIQUIDATE_MORTGAGE': {
-      if (!isCurrent || state.phase !== 'AWAITING_LIQUIDATION') return noop(state);
-      return liquidateMortgage(state, acting.id, command.spaceId, rng);
-    }
-
-    case 'LIQUIDATE_SELL_DEVELOPMENT': {
-      if (!isCurrent || state.phase !== 'AWAITING_LIQUIDATION') return noop(state);
-      return liquidateSellDevelopment(state, acting.id, command.spaceId, rng);
-    }
-
     case 'DECLARE_BANKRUPTCY': {
-      if (!isCurrent || state.phase !== 'AWAITING_LIQUIDATION') return noop(state);
+      // Only offered while the balance is negative.
+      if (!isCurrent || state.phase !== 'AWAITING_ROLL' || acting.cash >= 0) return noop(state);
       return declareBankruptcy(state, acting.id);
     }
 

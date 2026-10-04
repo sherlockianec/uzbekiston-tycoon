@@ -55,3 +55,16 @@ describe('Uzbek Latin -> Cyrillic', () => {
     expect(tr(sample)).not.toMatch(/[A-Za-z]/);
   });
 });
+
+describe('brand names stay as written', () => {
+  it('never transliterates company names', () => {
+    expect(tr('Click orqali toʻlang')).toBe('Click орқали тўланг');
+    expect(tr('Payme va Uzum')).toBe('Payme ва Uzum');
+    expect(tr('Beeline Oʻzbekiston')).toBe('Beeline Ўзбекистон');
+    expect(tr("Click'ni oling")).toBe('Click-ни олинг');
+    expect(tr('click')).toBe('click');
+  });
+  it('still converts ordinary words next to brands', () => {
+    expect(tr('Korzinka bozori')).toBe('Korzinka бозори');
+  });
+});

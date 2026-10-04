@@ -10,8 +10,10 @@ export const TOAST_DURATION_MS = 7000;
 /** Pure: the sentence a notice shows, in the given language. */
 export function noticeText(n: GameNotice, lang: Language): string {
   if (n.kind === 'loanPaid') {
-    const key = n.remaining > 0 ? 'toastLoanPaid' : 'toastLoanPaidOff';
-    return t(key, lang).replace('{amount}', formatSom(n.amount)).replace('{n}', String(n.remaining));
+    return t('toastLoanPaid', lang).replace('{amount}', formatSom(n.amount));
+  }
+  if (n.kind === 'loanLap') {
+    return t('toastLoanLap', lang).replace('{amount}', formatSom(n.amount)).replace('{n}', String(n.remaining));
   }
   const name = n.spaceId ? localized(ownableDef(n.spaceId), lang) : '';
   return t('toastForeclosed', lang).replace('{name}', name);

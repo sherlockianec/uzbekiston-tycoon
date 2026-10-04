@@ -39,22 +39,27 @@ as the Vite base path. No secrets or backend are required.
 
 - **Board:** 40 spaces - 22 properties in 8 colour groups, 4 transport assets, 2 utility
   networks, Income Tax and Business Tax, 2 card decks, the Local Official, and four corners:
-  START, Tax Inspection, Rest and the Senior Official (bribe cell).
+  START, Chorsu Choyxona (bottom-left), the Senior Official (top-left) and Tax Inspection (top-right).
 - **Money:** Uzbek so'm, formatted `2 500 000 so'm`. Everyone starts with 15 000 000;
   passing START pays 1 500 000.
 - **No auctions.** Decline a purchase and the property stays unowned until somebody lands
-  there and buys it. Declining is not final for your turn: while you still stand on the
-  space, a **Buy** button stays in the action bar, so you can take a loan, sell, mortgage
-  or trade first and then buy.
+  there and buys it. Declining is not final: a **Buy** button stays in the centre of the
+  board while you stand on the space - also at the START of your next turn, before you
+  roll - so you can raise money first and then buy (if nobody else took it).
 - **Development:** own a whole group, then upgrade Business → Company → Development →
   Business Center → Holding. Even-building is enforced; the final Holding upgrade costs
   double the earlier ones. The **Build** button lists every upgrade available right now.
 - **Mortgages have teeth:** mortgaging pays half the price, redeeming costs the full
   price, and you have **6 laps** (START passes) to redeem before the bank forecloses with
   no compensation. The lock and laps-left show on the board and turn red at 2 or fewer.
-- **Bank loans:** borrow up to 10 000 000 at 30% interest, repaid in 3 automatic
-  installments (one each START pass). A toast announces every installment. One loan at a
-  time; early full repayment allowed.
+- **Bank loans:** borrow up to 10 000 000 at 30% interest. After 3 START passes the bank
+  takes principal + interest in ONE payment (10 000 000 -> 13 000 000 at once). A toast
+  announces each lap. One loan at a time; early full repayment allowed.
+- **No debt, only a negative balance:** rent, taxes and loans are always paid in full -
+  the owner gets all of it even if you cannot cover it, and your balance goes negative.
+  While below zero you cannot roll or end the turn: sell levels, mortgage, borrow or
+  trade until you are at 0 or more - or declare bankruptcy, which returns every property
+  to the bank (open to buy and trade again). Nothing is ever handed to a creditor.
 - **Taxes:** Income Tax is 12% of cash. Business Tax is 150 000 per unmortgaged asset.
 - **Tax Inspection** (jail): you are always sent *forward* there, crossing START (and
   collecting the salary) when you come from past it. Pay a fine that shrinks the longer you wait (600k → 400k →
@@ -65,8 +70,11 @@ as the Vite base path. No secrets or backend are required.
   and entirely by choice, gamble once: **40%** lose a random
   300 000-1 200 000, **35%** go straight to Tax Inspection, **25%** gain a random
   500 000-2 500 000. Odds always stay loss > jail > gain.
-- **Transport network:** standing on a transport asset, travel free (once per turn) to
-  any other one and resolve it as a normal landing. Travel is always forward, so a
+- **Chorsu Choyxona:** passing it does nothing; if you END your turn on it you skip the
+  next dice roll (you can still buy, build, trade, use the bank).
+- **Transport network:** only when your dice roll ENDS on an owned transport asset (you
+  bought it or paid its owner), travel free once that turn to any other one and resolve
+  it as a normal landing. No chaining, and the option never carries to the next turn. Travel is always forward, so a
   destination behind you means a lap past START and you collect the salary.
 - **Cards:** 20 Mahalla + 20 Business Opportunity cards with real effects on cash,
   position, taxes, loans (cut / forgive / extend), tax immunity and purchase discounts.
@@ -120,7 +128,7 @@ src/
       turn.ts          Dice, movement, landing, cards, detention, bribe gamble
       bank.ts          Loans
       negotiation.ts   Trading
-      liquidation.ts   Forced liquidation and bankruptcy
+      bankruptcy.ts    Bankruptcy (assets return to the bank)
       index.ts         applyCommand(state, command, actingPlayerId, rng)
     ai/                Personalities, difficulty, and the decision logic
     persistence.ts     localStorage save/load (versioned) + saved preferences

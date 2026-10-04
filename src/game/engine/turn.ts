@@ -44,20 +44,32 @@ function grantSalary(state: GameState, playerId: string): GameState {
   }
 
   const player = getPlayer(next, playerId);
-  if (player.loan && player.loan.installmentsLeft > 0) {
-    const amount = player.loan.installmentAmount;
-    const { state: charged, needsLiquidation } = chargePlayer(next, playerId, amount, 'BANK', 'loan installment', 'loan');
-    if (needsLiquidation) return charged; // settled later; installment count decrements when the debt clears
-    const remaining = player.loan.installmentsLeft - 1;
-    let afterPay = updatePlayer(charged, playerId, (p) => ({
-      ...p,
-      loan: remaining > 0 ? { ...p.loan!, installmentsLeft: remaining } : null,
-    }));
-    afterPay = appendLog(
-      afterPay,
-      `${player.name} paid a loan installment of ${formatSom(amount)}${remaining > 0 ? ` (${remaining} left)` : ' \u2014 loan paid off'}.`
-    );
-    return addNotice(afterPay, { kind: 'loanPaid', playerId, amount, remaining });
+  if (player.loan) {
+    const lapsLeft = player.loan.lapsLeft - 1;
+    if (lapsLeft > 0) {
+      next = updatePlayer(next, playerId, (p) => ({ ...p, loan: p.loan ? { ...p.loan, lapsLeft } : null }));
+      next = appendLog(next, `${player.name}'s loan: ${lapsLeft} lap(s) left before ${formatSom(player.loan.dueAmount)} is due.`);
+      return addNotice(next, { kind: 'loanLap', playerId, amount: player.loan.dueAmount, remaining: lapsLeft });
+    }
+    // Maturity: the whole amount leaves in ONE go (may push cash below zero).
+    const due = player.loan.dueAmount;
+    next = chargePlayer(next, playerId, due, 'BANK');
+    next = updatePlayer(next, playerId, (p) => ({ ...p, loan: null }));
+    next = appendLog(next, `${player.name}'s loan matured \u2014 the bank took ${formatSom(due)}.`);
+    return addNotice(next, { kind: 'loanPaid', playerId, amount: due, remaining: 0 });
+  }
+  return next;
+}
+
+/** Pays everything that happens when a token crosses/lands on START and tags
+ * the current `lastMove` so the UI can float the money at the START tile at the
+ * moment the pawn crosses it. */
+function passStart(state: GameState, playerId: string): GameState {
+  const before = getPlayer(state, playerId).cash;
+  let next = grantSalary(state, playerId);
+  const delta = getPlayer(next, playerId).cash - before;
+  if (next.lastMove && next.lastMove.playerId === playerId) {
+    next = { ...next, lastMove: { ...next.lastMove, crossedStart: true, startDelta: delta } };
   }
   return next;
 }
@@ -71,7 +83,9 @@ function setPosition(
 ): GameState {
   const from = getPlayer(state, playerId).position;
   const next = updatePlayer(state, playerId, (p) => ({ ...p, position: index }));
-  return from === index ? next : { ...next, lastMove: { playerId, from, to: index, backward, kind } };
+  return from === index
+    ? next
+    : { ...next, lastMove: { playerId, from, to: index, backward, kind, crossedStart: false, startDelta: 0 } };
 }
 
 export function moveForward(state: GameState, playerId: string, spaces: number, collectSalary = true): GameState {
@@ -80,7 +94,7 @@ export function moveForward(state: GameState, playerId: string, spaces: number, 
   const newPos = raw % BOARD_SIZE;
   const passedStart = raw >= BOARD_SIZE;
   let next = setPosition(state, playerId, newPos);
-  if (passedStart && collectSalary) next = grantSalary(next, playerId);
+  if (passedStart && collectSalary) next = passStart(next, playerId);
   return next;
 }
 
@@ -102,11 +116,11 @@ export function moveToTarget(
   if (distance <= 0) distance += BOARD_SIZE;
   const passedStart = player.position + distance >= BOARD_SIZE;
   let next = setPosition(state, playerId, targetIndex, kind);
-  if (passedStart && collectIfPassed) next = grantSalary(next, playerId);
+  if (passedStart && collectIfPassed) next = passStart(next, playerId);
   return next;
 }
 
-/** Tokens only ever travel FORWARD to Tax Inspection, so anyone sent there
+/** Tokens only ever travel FORWARD to Tax Inspection (the last corner before START), so anyone sent there
  * from past it (most of the board) crosses START and collects the salary.
  * Someone already standing there simply stays put (no free lap). */
 export function sendToDetention(state: GameState, playerId: string): GameState {
@@ -116,7 +130,7 @@ export function sendToDetention(state: GameState, playerId: string): GameState {
   if (from !== detentionIndex) {
     const passedStart = from > detentionIndex;
     next = setPosition(next, playerId, detentionIndex, 'jail');
-    if (passedStart) next = grantSalary(next, playerId);
+    if (passedStart) next = passStart(next, playerId);
   }
   next = updatePlayer(next, playerId, (p) => ({ ...p, inDetention: true, detentionTurns: 0 }));
   next = appendLog(next, `${getPlayer(state, playerId).name} was sent to Tax Inspection.`);
@@ -136,16 +150,7 @@ export function attemptBribe(state: GameState, playerId: string, rng: Rng): Game
 
   if (roll < BRIBE_GAMBLE_LOSS_CHANCE) {
     const lossAmount = randomBribeAmount(BRIBE_GAMBLE_LOSS_MIN, BRIBE_GAMBLE_LOSS_MAX, rng.next());
-    const { state: charged, needsLiquidation } = chargePlayer(
-      next,
-      playerId,
-      lossAmount,
-      'BANK',
-      'a failed bribe attempt',
-      'card'
-    );
-    next = charged;
-    if (needsLiquidation) return next; // the liquidation flow explains itself; no separate result popup needed
+    next = chargePlayer(next, playerId, lossAmount, 'BANK');
     next = appendLog(
       next,
       `${player.name} tried to bribe a senior official and got burned \u2014 lost ${formatSom(lossAmount)}.`
@@ -206,8 +211,7 @@ function applyCardEffect(state: GameState, playerId: string, card: CardDef, rng:
       return appendLog(next, `${player.name} collected ${formatSom(effect.amount)} (${card.title}).`);
     }
     case 'pay': {
-      const { state: charged } = chargePlayer(state, playerId, effect.amount, 'BANK', card.title, 'card');
-      if (charged.phase === 'AWAITING_LIQUIDATION') return charged;
+      const charged = chargePlayer(state, playerId, effect.amount, 'BANK');
       return appendLog(charged, `${player.name} paid ${formatSom(effect.amount)} (${card.title}).`);
     }
     case 'collectFromEach': {
@@ -258,8 +262,7 @@ function applyCardEffect(state: GameState, playerId: string, card: CardDef, rng:
         if (o.ownerId === playerId) totalLevels += o.level;
       }
       const amount = totalLevels * effect.amountPerLevel;
-      const { state: charged } = chargePlayer(state, playerId, amount, 'BANK', card.title, 'card');
-      if (charged.phase === 'AWAITING_LIQUIDATION') return charged;
+      const charged = chargePlayer(state, playerId, amount, 'BANK');
       return appendLog(
         charged,
         `${player.name} paid ${formatSom(amount)} across ${totalLevels} development level(s) (${card.title}).`
@@ -270,8 +273,7 @@ function applyCardEffect(state: GameState, playerId: string, card: CardDef, rng:
         ([id, o]) => o.ownerId === playerId && isInfrastructureId(id)
       ).length;
       const amount = count * effect.amountEach;
-      const { state: charged } = chargePlayer(state, playerId, amount, 'BANK', card.title, 'card');
-      if (charged.phase === 'AWAITING_LIQUIDATION') return charged;
+      const charged = chargePlayer(state, playerId, amount, 'BANK');
       return appendLog(charged, `${player.name} paid ${formatSom(amount)} (${card.title}).`);
     }
     case 'advanceToNearestGroup': {
@@ -284,12 +286,8 @@ function applyCardEffect(state: GameState, playerId: string, card: CardDef, rng:
     }
     case 'reduceLoanBalance': {
       if (!player.loan) return appendLog(state, `${player.name} had no loan to reduce (${card.title}).`);
-      const totalRemaining = player.loan.installmentAmount * player.loan.installmentsLeft;
-      const reduced = Math.round((totalRemaining * (1 - effect.percent / 100)) / 1000) * 1000;
-      const newInstallmentAmount = Math.round(reduced / player.loan.installmentsLeft / 1000) * 1000;
-      const next = updatePlayer(state, playerId, (p) =>
-        p.loan ? { ...p, loan: { ...p.loan, installmentAmount: newInstallmentAmount } } : p
-      );
+      const reduced = Math.round((player.loan.dueAmount * (1 - effect.percent / 100)) / 1000) * 1000;
+      const next = updatePlayer(state, playerId, (p) => (p.loan ? { ...p, loan: { ...p.loan, dueAmount: reduced } } : p));
       return appendLog(next, `${player.name}'s loan balance was cut by ${effect.percent}% (${card.title}).`);
     }
     case 'forgiveLoan': {
@@ -299,13 +297,10 @@ function applyCardEffect(state: GameState, playerId: string, card: CardDef, rng:
     }
     case 'extendLoanTerm': {
       if (!player.loan) return appendLog(state, `${player.name} had no loan to extend (${card.title}).`);
-      const totalRemaining = player.loan.installmentAmount * player.loan.installmentsLeft;
-      const newInstallmentsLeft = player.loan.installmentsLeft + effect.extraInstallments;
-      const newInstallmentAmount = Math.round(totalRemaining / newInstallmentsLeft / 1000) * 1000;
       const next = updatePlayer(state, playerId, (p) =>
-        p.loan ? { ...p, loan: { ...p.loan, installmentsLeft: newInstallmentsLeft, installmentAmount: newInstallmentAmount } } : p
+        p.loan ? { ...p, loan: { ...p.loan, lapsLeft: p.loan.lapsLeft + effect.extraLaps } } : p
       );
-      return appendLog(next, `${player.name}'s loan term was extended by ${effect.extraInstallments} lap(s) (${card.title}).`);
+      return appendLog(next, `${player.name}'s loan term was extended by ${effect.extraLaps} lap(s) (${card.title}).`);
     }
     case 'taxImmunity': {
       const next = updatePlayer(state, playerId, (p) => ({ ...p, taxImmunity: true }));
@@ -337,9 +332,6 @@ export function acknowledgeCard(state: GameState, playerId: string, rng: Rng): G
   const afterEffect = applyCardEffect({ ...state, cardCausedMove: false }, playerId, card, rng);
   const cleared: GameState = { ...afterEffect, drawnCard: null, drawnCardDeck: null };
 
-  if (cleared.phase === 'AWAITING_LIQUIDATION') {
-    return cleared; // an unaffordable card payment (or loan installment along the way) takes over
-  }
   if (!cleared.cardCausedMove) {
     return { ...cleared, phase: 'AWAITING_ROLL' };
   }
@@ -349,8 +341,7 @@ export function acknowledgeCard(state: GameState, playerId: string, rng: Rng): G
 // --- Landing resolution --------------------------------------------------------
 
 /** Resolves whatever space the player currently stands on. May move the
- * phase to AWAITING_PURCHASE_DECISION, AWAITING_CARD_ACK or
- * AWAITING_LIQUIDATION; otherwise returns to AWAITING_ROLL. */
+ * phase to AWAITING_PURCHASE_DECISION or AWAITING_CARD_ACK; otherwise returns to AWAITING_ROLL. */
 export function resolveLanding(state: GameState, playerId: string, rng: Rng): GameState {
   const player = getPlayer(state, playerId);
   const space = BOARD[player.position];
@@ -375,10 +366,7 @@ export function resolveLanding(state: GameState, playerId: string, rng: Rng): Ga
         const logged = appendLog(state, `${owner.name} is in Tax Inspection, so ${space.id} earned no rent this time.`);
         return { ...logged, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
       }
-      const { state: charged } = chargePlayer(state, playerId, rent, o.ownerId, `rent on ${space.id}`, 'rent');
-      if (charged.phase === 'AWAITING_LIQUIDATION') {
-        return { ...charged, ...resetMultiplier, currentSpaceId: space.id };
-      }
+      const charged = chargePlayer(state, playerId, rent, o.ownerId);
       const logged = appendLog(charged, `${player.name} paid ${formatSom(rent)} rent to ${owner.name}.`);
       return { ...logged, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
     }
@@ -391,21 +379,19 @@ export function resolveLanding(state: GameState, playerId: string, rng: Rng): Ga
       }
       let amount: number;
       if (def.kind === 'percent') {
-        amount = Math.round((player.cash * def.amount) / 100 / 1000) * 1000;
+        amount = Math.round((Math.max(0, player.cash) * def.amount) / 100 / 1000) * 1000;
       } else if (def.kind === 'perAsset') {
         const count = Object.values(state.ownership).filter((o) => o.ownerId === playerId && !o.mortgaged).length;
         amount = count * def.amount;
       } else {
         amount = def.amount;
       }
-      const { state: charged } = chargePlayer(state, playerId, amount, 'BANK', `tax at ${space.id}`, 'tax');
-      if (charged.phase === 'AWAITING_LIQUIDATION') return { ...charged, ...resetMultiplier, currentSpaceId: space.id };
+      const charged = chargePlayer(state, playerId, amount, 'BANK');
       const logged = appendLog(charged, `${player.name} paid ${formatSom(amount)} in ${def.name}.`);
       return { ...logged, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
     }
     case 'corruption': {
-      const { state: charged } = chargePlayer(state, playerId, CORRUPTION_TOLL_AMOUNT, 'BANK', 'a local official', 'tax');
-      if (charged.phase === 'AWAITING_LIQUIDATION') return { ...charged, ...resetMultiplier, currentSpaceId: space.id };
+      const charged = chargePlayer(state, playerId, CORRUPTION_TOLL_AMOUNT, 'BANK');
       const logged = appendLog(
         charged,
         `${player.name} paid ${formatSom(CORRUPTION_TOLL_AMOUNT)} to a local official to keep things moving.`

@@ -30,7 +30,7 @@ export function floatRng(floats: number[]): Rng {
   };
 }
 
-/** Puts every player on the Senior Official (bribe) corner, index 30. */
+/** Puts every player on the Senior Official (bribe) corner, index 20. */
 export function atOfficial(s: GameState): GameState {
-  return { ...s, players: s.players.map((p) => ({ ...p, position: 30 })) };
+  return { ...s, players: s.players.map((p) => ({ ...p, position: 20 })) };
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { BOARD, BOARD_SIZE, spaceLabel } from '../game/data/board';
 import {
   GROUPS,
@@ -10,42 +10,41 @@ import {
   isPropertyId,
   isUtilityId,
 } from '../game/data/properties';
-import { DEVELOPMENT_LEVEL_ICONS } from '../game/data/economy';
 import { computeRent, playersOwning, isMortgageUrgent, mortgageLapsLeft } from '../game/engine';
-import { formatSom } from '../utils/currency';
+import { formatNumber } from '../utils/currency';
 import type { BoardSpace, GameState, Player } from '../game/types';
-import Emblem from './Emblem';
 import { t, localized } from '../i18n/strings';
 import { CORRUPTION_TOLL_AMOUNT } from '../game/data/economy';
-import MoneyFloats from './MoneyFloats';
+import MoneyFloats, { StartFloats } from './MoneyFloats';
 import Icon from './icons/Icon';
 import { assetIconName, specialIconName } from './icons/iconFor';
 import { hopStepMs, pathSteps, reducedMotionPreferred } from '../utils/movement';
+import { BOARD_RATIO, CORNER_H_PCT, CORNER_W_PCT, coordsPercent, gridPosition, tileShape } from './boardGeometry';
 
+const INFRA_COLOR = '#6b7c99';
+const UTILITY_COLOR = '#d4af37';
 
-function gridPosition(index: number): { row: number; col: number } {
-  if (index === 0) return { row: 11, col: 11 };
-  if (index <= 9) return { row: 11, col: 11 - index };
-  if (index === 10) return { row: 11, col: 1 };
-  if (index <= 19) return { row: 11 - (index - 10), col: 1 };
-  if (index === 20) return { row: 1, col: 1 };
-  if (index <= 29) return { row: 1, col: 1 + (index - 20) };
-  if (index === 30) return { row: 1, col: 11 };
-  return { row: 1 + (index - 30), col: 11 };
+/** Black or white, whichever reads better on `hex` (WCAG contrast). */
+export function inkOn(hex: string): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const L = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  const contrastWhite = 1.05 / (L + 0.05);
+  const contrastDark = (L + 0.05) / 0.06;
+  return contrastWhite >= contrastDark ? '#ffffff' : '#0b1020';
 }
 
-function coordsPercent(index: number): { left: number; top: number } {
-  const { row, col } = gridPosition(index);
-  return { left: ((col - 0.5) / 11) * 100, top: ((row - 0.5) / 11) * 100 };
-}
-
-function groupColor(spaceId: string): string | null {
+/** The colour a whole tile is filled with (null = neutral tile: cards, taxes, official). */
+export function tileColor(spaceId: string): string | null {
   if (isPropertyId(spaceId)) {
     const groupId = PROPERTIES[spaceId].groupId;
     return GROUPS.find((g) => g.id === groupId)?.color ?? null;
   }
-  if (isInfrastructureId(spaceId)) return '#6b7c99';
-  if (isUtilityId(spaceId)) return '#D4AF37';
+  if (isInfrastructureId(spaceId)) return INFRA_COLOR;
+  if (isUtilityId(spaceId)) return UTILITY_COLOR;
   return null;
 }
 
@@ -59,20 +58,30 @@ function priceOf(spaceId: string): number | undefined {
 interface BoardProps {
   state: GameState;
   onSelectSpace: (spaceId: string) => void;
+  /** Dashboard drawn in the middle of the board (dice, players, buttons, log). */
+  centre?: ReactNode;
+  /** Phones: draw the board this many CSS px wide (it is then panned/zoomed) instead of fitting the screen. */
+  fixedWidth?: number;
 }
 
-export default function Board({ state, onSelectSpace }: BoardProps) {
-  const lang = state.settings.language;
+export default function Board({ state, onSelectSpace, centre, fixedWidth }: BoardProps) {
   const living = state.players.filter((p) => !p.bankrupt);
+  const wrapStyle: CSSProperties | undefined = fixedWidth
+    ? { width: fixedWidth, height: fixedWidth / BOARD_RATIO, minWidth: fixedWidth }
+    : undefined;
+  const boardStyle = {
+    '--cw': `${CORNER_W_PCT}%`,
+    '--ch': `${CORNER_H_PCT}%`,
+  } as CSSProperties;
   return (
-    <div className="board-wrap">
-      <div className="board">
+    <div className={`board-wrap${fixedWidth ? ' board-wrap--fixed' : ''}`} style={wrapStyle}>
+      <div className="board" style={boardStyle}>
         {BOARD.map((space) => (
           <Cell key={space.id} space={space} state={state} onSelect={onSelectSpace} />
         ))}
-        <div className="board__center">
-          <Emblem className="board__center-emblem" />
-          <div className="board__center-title">{t('appTitle', lang)}</div>
+        <div className="board__center">{centre}</div>
+        <div className="board__start-floats" style={{ left: `${coordsPercent(0).left}%`, top: `${coordsPercent(0).top}%` }}>
+          <StartFloats />
         </div>
         <div className="board__tokens-layer">
           {living.map((p) => (
@@ -90,22 +99,34 @@ export default function Board({ state, onSelectSpace }: BoardProps) {
   );
 }
 
+function DevBlocks({ level }: { level: number }) {
+  if (level <= 0) return null;
+  return (
+    <span className={`cell__dev${level >= 5 ? ' cell__dev--holding' : ''}`} aria-label={`level ${level}`}>
+      {level >= 5 ? <span className="cell__dev-block cell__dev-block--star" /> : Array.from({ length: level }).map((_, i) => <span key={i} className="cell__dev-block" />)}
+    </span>
+  );
+}
+
 function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState; onSelect: (id: string) => void }) {
   const { row, col } = gridPosition(space.index);
   const label = spaceLabel(space);
   const lang = state.settings.language;
-  const isCorner = space.kind.startsWith('corner');
+  const shape = tileShape(space.index);
   const gridStyle: CSSProperties = { gridRow: row, gridColumn: col };
+  const name = localized(label, lang);
+  const nameClass = name.length > 11 ? ' cell__name--long' : name.length > 8 ? ' cell__name--mid' : '';
+  const specialIcon = specialIconName(space);
 
-  if (isCorner) {
+  if (shape === 'corner') {
     return (
       <div
-        className={`cell cell--corner${space.kind === 'corner-bribe' ? ' cell--bribe' : ''}`}
+        className={`cell cell--corner cell--${space.id}`}
         style={gridStyle}
         title={space.kind === 'corner-bribe' ? t('bribeExplain', lang) : undefined}
       >
-        <span className="cell__icon">{specialIconName(space) && <Icon name={specialIconName(space)!} />}</span>
-        <span className="cell__name">{localized(label, lang)}</span>
+        <span className="cell__icon">{specialIcon && <Icon name={specialIcon} />}</span>
+        <span className="cell__name">{name}</span>
       </div>
     );
   }
@@ -114,9 +135,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
   const ownership = ownable ? state.ownership[space.id] : null;
   const owner: Player | null = ownership?.ownerId ? state.players.find((p) => p.id === ownership.ownerId) ?? null : null;
   const price = ownable ? priceOf(space.id) : undefined;
-  const bar = groupColor(space.id);
-  const devIcon =
-    ownership && isPropertyId(space.id) && ownership.level > 0 ? DEVELOPMENT_LEVEL_ICONS[ownership.level] : null;
+  const fill = tileColor(space.id);
 
   let rentDisplay: string | null = null;
   if (owner && ownership && !ownership.mortgaged) {
@@ -124,42 +143,60 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
       const count = playersOwning(state, owner.id, Object.keys(UTILITIES)).length;
       rentDisplay = `${count >= 2 ? 10 : 4}\u00d7`;
     } else {
-      rentDisplay = formatSom(computeRent(state, space.id, 7));
+      rentDisplay = formatNumber(computeRent(state, space.id, 7));
     }
   }
 
-  const cellClasses = ['cell'];
-  if (owner) cellClasses.push('cell--owned');
-  if (ownership?.mortgaged) cellClasses.push('cell--mortgaged');
+  const classes = ['cell', `cell--${shape}`];
+  if (fill) classes.push('cell--filled');
+  if (owner) classes.push('cell--owned');
+  if (ownership?.mortgaged) classes.push('cell--mortgaged');
+  if (space.kind.startsWith('card')) classes.push(`cell--${space.kind}`);
+  if (space.kind === 'tax') classes.push('cell--tax');
+  if (space.kind === 'corruption') classes.push('cell--corruption');
 
-  const cellStyle = {
+  const style = {
     ...gridStyle,
+    '--tile-bg': fill ?? 'var(--tile-neutral)',
+    '--tile-ink': fill ? inkOn(fill) : 'var(--tile-neutral-ink)',
     '--owner-color': owner?.tokenColor,
+    '--owner-ink': owner ? inkOn(owner.tokenColor) : undefined,
   } as CSSProperties;
 
+  const icon = specialIcon ?? assetIconName(space.id);
+
   return (
-    <div className={cellClasses.join(' ')} style={cellStyle} title={space.kind === 'corruption' ? t('corruptionTip', lang) : undefined} onClick={() => onSelect(space.id)} role="button" tabIndex={0}>
-      {bar && <div className="cell__bar" style={{ background: bar }} />}
-      <div className="cell__body">
-        {specialIconName(space) && (
+    <div
+      className={classes.join(' ')}
+      style={style}
+      title={space.kind === 'corruption' ? t('corruptionTip', lang) : name}
+      onClick={() => onSelect(space.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(space.id);
+        }
+      }}
+    >
+      <div className="cell__head">
+        {icon && (
           <span className="cell__icon">
-            <Icon name={specialIconName(space)!} />
+            <Icon name={icon} />
           </span>
         )}
-        {assetIconName(space.id) && (
-          <span className="cell__icon">
-            <Icon name={assetIconName(space.id)!} />
-          </span>
-        )}
-        {space.kind === 'corruption' && <span className="cell__price">{formatSom(CORRUPTION_TOLL_AMOUNT)}</span>}
-        {devIcon && <span className="cell__icon">{devIcon}</span>}
-        <span className="cell__name">{localized(label, lang)}</span>
+        <span className={`cell__name${nameClass}`}>{name}</span>
+      </div>
+      <div className="cell__status">
+        {ownership && ownership.level > 0 && isPropertyId(space.id) && <DevBlocks level={ownership.level} />}
+        {space.kind === 'corruption' && <span className="cell__price">{formatNumber(CORRUPTION_TOLL_AMOUNT)}</span>}
+        {ownable && !owner && price !== undefined && <span className="cell__price">{formatNumber(price)}</span>}
         {owner && (
-          <span className="cell__owner" style={{ background: owner.tokenColor }}>
+          <span className="cell__owner" style={{ background: owner.tokenColor, color: inkOn(owner.tokenColor) }}>
             {owner.name}
           </span>
         )}
-        {ownable && !owner && price !== undefined && <span className="cell__price">{formatSom(price)}</span>}
         {rentDisplay && <span className="cell__rent">{rentDisplay}</span>}
         {ownership?.mortgaged && (
           <span
@@ -182,6 +219,7 @@ function Cell({ space, state, onSelect }: { space: BoardSpace; state: GameState;
 function useHopPath(actualPosition: number, animate: boolean, backward: boolean) {
   const [displayPos, setDisplayPos] = useState(actualPosition);
   const [hopping, setHopping] = useState(false);
+  const [glideMs, setGlideMs] = useState(0);
   const prevRef = useRef(actualPosition);
   const timers = useRef<number[]>([]);
 
@@ -206,13 +244,16 @@ function useHopPath(actualPosition: number, animate: boolean, backward: boolean)
     }
 
     const stepMs = hopStepMs(steps);
+    setGlideMs(stepMs);
     for (let i = 1; i <= steps; i++) {
       const id = window.setTimeout(() => {
         const next = backward ? (((from - i) % BOARD_SIZE) + BOARD_SIZE) % BOARD_SIZE : (from + i) % BOARD_SIZE;
         setDisplayPos(next);
-        setHopping(true);
-        const clearId = window.setTimeout(() => setHopping(false), Math.max(60, stepMs - 30));
-        timers.current.push(clearId);
+        // The pawn glides across every tile without pausing; one small bounce when it arrives.
+        if (i === steps) {
+          setHopping(true);
+          timers.current.push(window.setTimeout(() => setHopping(false), 260));
+        }
       }, i * stepMs);
       timers.current.push(id);
     }
@@ -226,14 +267,15 @@ function useHopPath(actualPosition: number, animate: boolean, backward: boolean)
     []
   );
 
-  return { displayPos, hopping };
+  return { displayPos, hopping, glideMs };
 }
 
+// Offsets in units of the token size, so clustered pawns scale with the board.
 const CLUSTER_OFFSETS = [
   { dx: 0, dy: 0 },
-  { dx: 11, dy: -7 },
-  { dx: -11, dy: 7 },
-  { dx: 11, dy: 9 },
+  { dx: 0.32, dy: -0.18 },
+  { dx: -0.32, dy: 0.18 },
+  { dx: 0.32, dy: 0.3 },
 ];
 
 function AnimatedToken({
@@ -247,7 +289,7 @@ function AnimatedToken({
   animate: boolean;
   backward: boolean;
 }) {
-  const { displayPos, hopping } = useHopPath(player.position, animate, backward);
+  const { displayPos, hopping, glideMs } = useHopPath(player.position, animate, backward);
   const { left, top } = coordsPercent(displayPos);
 
   const sharingSpace = allPlayers.filter((p) => p.position === player.position);
@@ -258,8 +300,9 @@ function AnimatedToken({
   const style: CSSProperties = {
     left: `${left}%`,
     top: `${top}%`,
-    marginLeft: arrived ? offset.dx : 0,
-    marginTop: arrived ? offset.dy : 0,
+    transition: glideMs && !arrived ? `left ${glideMs}ms linear, top ${glideMs}ms linear` : undefined,
+    marginLeft: arrived ? `calc(var(--token-size) * ${offset.dx})` : 0,
+    marginTop: arrived ? `calc(var(--token-size) * ${offset.dy})` : 0,
   };
 
   return (
@@ -273,9 +316,9 @@ function AnimatedToken({
 function TokenBust({ color, initial }: { color: string; initial: string }) {
   return (
     <svg viewBox="0 0 40 40" className="board-token__svg" aria-hidden="true">
-      <path d="M5 39 C5 25 11 19 20 19 C29 19 35 25 35 39 Z" fill={color} stroke="#0a0f1c" strokeWidth="2" />
-      <circle cx="20" cy="12.5" r="10" fill={color} stroke="#0a0f1c" strokeWidth="2" />
-      <text x="20" y="17" textAnchor="middle" fontSize="11" fontWeight="800" fill="#0a0f1c">
+      <path d="M5 39 C5 25 11 19 20 19 C29 19 35 25 35 39 Z" fill={color} stroke="var(--token-outline)" strokeWidth="2.4" />
+      <circle cx="20" cy="12.5" r="10" fill={color} stroke="var(--token-outline)" strokeWidth="2.4" />
+      <text x="20" y="17" textAnchor="middle" fontSize="11" fontWeight="800" fill={inkOn(color)}>
         {initial}
       </text>
     </svg>

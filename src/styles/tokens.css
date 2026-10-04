@@ -177,5 +177,85 @@
   --pattern-girih: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='56' viewBox='0 0 56 56'%3E%3Cg fill='none' stroke='%23d4af52' stroke-opacity='.075' stroke-width='1'%3E%3Cpath d='M14 14h28v28H14z'/%3E%3Cpath d='M28 6l22 22-22 22L6 28z'/%3E%3Ccircle cx='28' cy='28' r='5'/%3E%3C/g%3E%3Cg fill='%232fb8af' fill-opacity='.07'%3E%3Cpath d='M0 0l4 0-4 4zM56 0v4l-4-4zM0 56v-4l4 4zM56 56h-4l4-4z'/%3E%3C/g%3E%3C/svg%3E");
   --pattern-ikat: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='10' viewBox='0 0 28 10'%3E%3Cpath d='M0 5l7-5 7 5-7 5z' fill='%23d4af52' fill-opacity='.85'/%3E%3Cpath d='M14 5l7-5 7 5-7 5z' fill='%232fb8af' fill-opacity='.85'/%3E%3Cpath d='M7 5l3.5-2.5L14 5l-3.5 2.5z M21 5l3.5-2.5L28 5l-3.5 2.5z' fill='%230a0f1c'/%3E%3C/svg%3E");
 
+  /* --- Extra semantic tokens (so a theme can restyle them) --------------------------------- */
+  --line: rgba(255, 255, 255, 0.18);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --danger-bg: rgba(224, 89, 107, 0.14);
+  --danger-line: rgba(224, 89, 107, 0.5);
+  --danger-ink: #ff8a98;
+  --toast-bg: linear-gradient(180deg, #1b2747, var(--surface-raised));
+  --modal-bg: linear-gradient(180deg, #1b2747 0%, var(--surface-raised) 100%);
+  --hero-bg: linear-gradient(160deg, #20305a, #0f1830);
+  --float-bg: rgba(8, 14, 28, 0.88);
+  --die-bg: linear-gradient(160deg, #fbf6e8, #e9dfc0);
+  --die-pip: #241a04;
+  --board-bg: var(--navy-900);
+  --board-line: rgba(255, 255, 255, 0.22);
+  --centre-bg: radial-gradient(ellipse at 50% 30%, #16223f 0%, var(--navy-900) 80%);
+  --tile-neutral: #1d2a4b;
+  --tile-neutral-ink: var(--cream);
+  --token-outline: #0a0f1c;
+
   color-scheme: dark;
+}
+
+/* ===========================================================================
+   LIGHT THEME - warm ivory paper, deep navy ink, same turquoise + gold accents.
+   Switched with <html data-theme="light"> (Settings > Theme). Group colours on
+   the board are identical in both themes so a monopoly is always recognisable.
+   =========================================================================== */
+:root[data-theme='light'] {
+  --bg: #f4efe2;
+  --bg-alt: #ebe4d1;
+  --bg-deep: #e3dbc4;
+  --surface: rgba(18, 27, 48, 0.045);
+  --surface-strong: rgba(255, 255, 255, 0.85);
+  --surface-border: rgba(18, 27, 48, 0.16);
+  --surface-raised: #fffdf6;
+  --hairline-gold: rgba(169, 130, 47, 0.6);
+  --hairline-turquoise: rgba(31, 143, 136, 0.55);
+  --scrim: rgba(20, 28, 48, 0.5);
+
+  --text: #141c30;
+  --text-muted: #46526b;
+  --text-faint: #5d6a85;
+
+  --turquoise-soft: #166a65;
+  --gold-soft: #7a5c1f;
+  --icon-accent: #a9822f;
+
+  --success: #1f7a45;
+  --danger: #b3293d;
+  --warning: #b36a0c;
+
+  --grad-bg: radial-gradient(ellipse 120% 80% at 50% -10%, #fffaf0 0%, var(--bg) 60%);
+  --grad-panel: linear-gradient(180deg, #fffdf6, #f6f0e0);
+  --grad-gold-text: linear-gradient(135deg, #7a5c1f, #a9822f);
+
+  --shadow-xs: 0 1px 2px rgba(40, 30, 10, 0.18);
+  --shadow-soft: 0 10px 26px -14px rgba(40, 30, 10, 0.4);
+  --shadow-deep: 0 24px 56px -24px rgba(40, 30, 10, 0.45);
+  --shadow-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --shadow-inset-bottom: inset 0 -2px 0 rgba(40, 30, 10, 0.1);
+  --focus-ring: 0 0 0 2px #fffdf6, 0 0 0 4px #7a5c1f;
+
+  --line: rgba(18, 27, 48, 0.28);
+  --line-soft: rgba(18, 27, 48, 0.1);
+  --danger-bg: rgba(179, 41, 61, 0.1);
+  --danger-line: rgba(179, 41, 61, 0.5);
+  --danger-ink: #8f1d2f;
+  --toast-bg: linear-gradient(180deg, #fffdf6, #f3ecd8);
+  --modal-bg: linear-gradient(180deg, #fffdf6 0%, #f6f0df 100%);
+  --hero-bg: linear-gradient(160deg, #fff6dc, #f0e4bd);
+  --float-bg: rgba(255, 253, 246, 0.96);
+  --die-bg: linear-gradient(160deg, #ffffff, #f1ead6);
+  --die-pip: #141c30;
+  --board-bg: #d9d0b6;
+  --board-line: rgba(18, 27, 48, 0.4);
+  --centre-bg: radial-gradient(ellipse at 50% 30%, #fffaf0 0%, #ece3c9 85%);
+  --tile-neutral: #efe8d3;
+  --tile-neutral-ink: #141c30;
+  --token-outline: #fffdf6;
+
+  color-scheme: light;
 }

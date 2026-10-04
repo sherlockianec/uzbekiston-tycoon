@@ -6,7 +6,7 @@ import { newTestGame, queueRng } from './helpers';
 import { ALL_CARDS, MAHALLA_CARDS, BUSINESS_CARDS } from '../src/game/data/cards';
 import { spaceById } from '../src/game/data/board';
 import { PROPERTIES } from '../src/game/data/properties';
-import { LOAN_INSTALLMENTS, PROPERTY_TAX_PER_ASSET } from '../src/game/data/economy';
+import { LOAN_LAPS, PROPERTY_TAX_PER_ASSET } from '../src/game/data/economy';
 
 const rng: Rng = createRng(1);
 const indexOf = (id: string) => spaceById(id)!.index;
@@ -18,11 +18,11 @@ function drawAndAck(state: GameState, cardId: string): GameState {
   return applyCommand(pending, { type: 'ACK_CARD' }, pending.players[pending.currentPlayerIndex].id, rng);
 }
 
-function withLoan(state: GameState, installmentAmount: number, installmentsLeft: number): GameState {
+function withLoan(state: GameState, dueAmount: number, lapsLeft: number): GameState {
   return {
     ...state,
     players: state.players.map((p, i) =>
-      i === 0 ? { ...p, loan: { principal: 3_000_000, installmentAmount, installmentsLeft } } : p
+      i === 0 ? { ...p, loan: { principal: 3_000_000, dueAmount, lapsLeft } } : p
     ),
   };
 }
@@ -51,23 +51,22 @@ describe('new card pool', () => {
 
 describe('loan cards', () => {
   it('reduces the remaining balance by 30%', () => {
-    const s = drawAndAck(withLoan(newTestGame(), 1_000_000, 3), 'mahalla-loan-relief');
+    const s = drawAndAck(withLoan(newTestGame(), 3_000_000, 3), 'mahalla-loan-relief');
     const loan = s.players[0].loan!;
-    expect(loan.installmentsLeft).toBe(3);
-    expect(loan.installmentAmount * 3).toBe(2_100_000); // 3,000,000 x 0.7
+    expect(loan.lapsLeft).toBe(3);
+    expect(loan.dueAmount).toBe(2_100_000); // 3,000,000 x 0.7
     expect(s.phase).toBe('AWAITING_ROLL');
   });
   it('forgives the loan entirely', () => {
-    const s = drawAndAck(withLoan(newTestGame(), 1_000_000, 2), 'mahalla-loan-forgiven');
+    const s = drawAndAck(withLoan(newTestGame(), 3_000_000, 2), 'mahalla-loan-forgiven');
     expect(s.players[0].loan).toBeNull();
     expect(s.players[0].cash).toBe(newTestGame().players[0].cash); // no cash changes hands
   });
-  it('extends the term by one lap, preserving the total owed', () => {
-    const s = drawAndAck(withLoan(newTestGame(), 1_200_000, 2), 'mahalla-loan-extended');
+  it('extends the term by one lap, the amount owed is unchanged', () => {
+    const s = drawAndAck(withLoan(newTestGame(), 2_400_000, 2), 'mahalla-loan-extended');
     const loan = s.players[0].loan!;
-    expect(loan.installmentsLeft).toBe(3);
-    expect(loan.installmentAmount).toBe(800_000); // 2,400,000 / 3
-    expect(loan.installmentAmount * loan.installmentsLeft).toBe(2_400_000);
+    expect(loan.lapsLeft).toBe(3);
+    expect(loan.dueAmount).toBe(2_400_000);
   });
   it('are harmless without a loan and say so in the log', () => {
     for (const id of ['mahalla-loan-relief', 'mahalla-loan-forgiven', 'mahalla-loan-extended']) {
@@ -77,8 +76,8 @@ describe('loan cards', () => {
       expect(s.log[s.log.length - 1].text).toMatch(/no loan/);
     }
   });
-  it('LOAN_INSTALLMENTS sanity: extending never leaves 0 installments', () => {
-    expect(LOAN_INSTALLMENTS).toBeGreaterThan(0);
+  it('LOAN_LAPS sanity: a fresh loan always has laps to run', () => {
+    expect(LOAN_LAPS).toBeGreaterThan(0);
   });
 });
 

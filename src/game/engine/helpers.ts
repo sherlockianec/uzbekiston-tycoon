@@ -78,41 +78,24 @@ export function nextLivingPlayerIndex(state: GameState, fromIndex: number): numb
   return fromIndex;
 }
 
-export interface ChargeResult {
-  state: GameState;
-  needsLiquidation: boolean;
-}
-
 /**
- * Attempts to charge `amount` from `payerId` to `payeeId` ('BANK' for taxes /
- * card debts owed to no one). If the payer can cover it, the transfer happens
- * immediately. If not, cash is left untouched and the game enters the
- * AWAITING_LIQUIDATION phase so the payer can mortgage/sell before paying or
- * declaring bankruptcy.
+ * Charges `amount` from `payerId` to `payeeId` ('BANK' for taxes / card debts
+ * owed to no one). The transfer ALWAYS happens in full - a payer short of cash
+ * simply goes negative and must raise money (sell, mortgage, loan) before they
+ * may roll or end the turn. There is no "debt" object and no asset transfer.
  */
 export function chargePlayer(
   state: GameState,
   payerId: string,
   amount: number,
-  payeeId: string | 'BANK',
-  reason: string,
-  kind: 'rent' | 'tax' | 'card' | 'loan' = 'card'
-): ChargeResult {
-  if (amount <= 0) return { state, needsLiquidation: false };
-  const payer = getPlayer(state, payerId);
-  if (payer.cash >= amount) {
-    let next = updatePlayer(state, payerId, (p) => ({ ...p, cash: p.cash - amount }));
-    if (payeeId !== 'BANK') {
-      next = updatePlayer(next, payeeId, (p) => ({ ...p, cash: p.cash + amount }));
-    }
-    return { state: next, needsLiquidation: false };
+  payeeId: string | 'BANK'
+): GameState {
+  if (amount <= 0) return state;
+  let next = updatePlayer(state, payerId, (p) => ({ ...p, cash: p.cash - amount }));
+  if (payeeId !== 'BANK') {
+    next = updatePlayer(next, payeeId, (p) => ({ ...p, cash: p.cash + amount }));
   }
-  const next: GameState = {
-    ...state,
-    phase: 'AWAITING_LIQUIDATION',
-    pendingDebt: { amount, payeeId, reason, kind },
-  };
-  return { state: next, needsLiquidation: true };
+  return next;
 }
 
 export function advanceTurn(state: GameState): GameState {
@@ -126,6 +109,7 @@ export function advanceTurn(state: GameState): GameState {
     dice: null,
     currentSpaceId: null,
     networkTravelUsed: false,
+    networkTravelEligible: false,
     bribeGambleUsedThisTurn: false,
     tradeProposedThisTurn: false,
     bribeResult: null,
@@ -149,7 +133,7 @@ export function liquidValue(state: GameState, playerId: string): number {
     }
   }
   if (player.loan) {
-    total -= player.loan.installmentAmount * player.loan.installmentsLeft;
+    total -= player.loan.dueAmount;
   }
   return total;
 }

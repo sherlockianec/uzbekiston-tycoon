@@ -1,3 +1,4 @@
+import { PROTECTED_BRANDS } from '../src/i18n/translit';
 import { describe, it, expect } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -136,7 +137,10 @@ describe('game content translations', () => {
   it('asset names localize in every language (Cyrillic for ru overrides and uz-cyrl)', () => {
     for (const def of [...Object.values(PROPERTIES), ...Object.values(INFRASTRUCTURE), ...Object.values(UTILITIES)]) {
       for (const l of LANGS) expect(localized(def, l).length, `${def.id}.${l}`).toBeGreaterThan(0);
-      expect(CYR.test(localized(def, 'uz-cyrl')), `${def.id} uz-cyrl`).toBe(true);
+      const brand = def.nameUz === def.name && PROTECTED_BRANDS.some((b) => b.toLowerCase() === def.name.toLowerCase());
+      // Brand names stay exactly as written; everything else is Cyrillic.
+      if (brand) expect(localized(def, 'uz-cyrl'), `${def.id} brand`).toBe(def.nameUz);
+      else expect(CYR.test(localized(def, 'uz-cyrl')), `${def.id} uz-cyrl`).toBe(true);
     }
     expect(CYR.test(localized(INFRASTRUCTURE['tashkent-metro'], 'ru'))).toBe(true);
   });

@@ -29,7 +29,6 @@ describe('Local Official (corruption cell)', () => {
     expect(before - r.players[0].cash).toBe(CORRUPTION_TOLL_AMOUNT);
     expect(r.phase).toBe('AWAITING_ROLL');
     expect(r.log.filter((l) => /local official/.test(l.text))).toHaveLength(1);
-    expect(r.pendingDebt).toBeNull();
   });
   it('is the same amount regardless of wealth or assets', () => {
     const rich = landOnOfficial(newTestGame(), 100_000_000);
@@ -39,11 +38,10 @@ describe('Local Official (corruption cell)', () => {
     const r = landOnOfficial(s);
     expect(s.players[0].cash - r.players[0].cash).toBe(CORRUPTION_TOLL_AMOUNT);
   });
-  it('unaffordable: enters liquidation with the debt recorded against the bank', () => {
+  it('unaffordable: the toll is still taken in full and the balance goes negative', () => {
     const r = landOnOfficial(newTestGame(), CORRUPTION_TOLL_AMOUNT - 1);
-    expect(r.phase).toBe('AWAITING_LIQUIDATION');
-    expect(r.pendingDebt).toMatchObject({ amount: CORRUPTION_TOLL_AMOUNT, payeeId: 'BANK', kind: 'tax' });
-    expect(r.players[0].cash).toBe(CORRUPTION_TOLL_AMOUNT - 1); // nothing taken yet
+    expect(r.phase).toBe('AWAITING_ROLL');
+    expect(r.players[0].cash).toBe(-1);
   });
   it('tax immunity does not apply to the toll', () => {
     let s = newTestGame();

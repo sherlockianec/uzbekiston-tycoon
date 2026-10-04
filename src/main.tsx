@@ -4,6 +4,7 @@ import App from './App';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/global.css';
+import './styles/board.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>

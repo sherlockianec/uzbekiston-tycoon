@@ -28,7 +28,60 @@ function matchCase(src: string, out: string): string {
   return out.length > 1 ? out[0].toUpperCase() + out.slice(1) : out.toUpperCase();
 }
 
+/**
+ * Company / brand names are proper names, not Uzbek words: they stay exactly as written
+ * (Click is Click, never "Кликк") in every language. Matching is case-insensitive and
+ * whole-word; a case suffix glued on with an apostrophe becomes "Click-ни".
+ */
+export const PROTECTED_BRANDS = [
+  'Tashkent International Business Center',
+  'Murad Buildings',
+  'Enter Engineering',
+  'Almalyk MMC',
+  'Navoiy MMC',
+  'Qanot Sharq',
+  'Korzinka',
+  'Havas',
+  'Makro',
+  'Mobiuz',
+  'Ucell',
+  'Beeline',
+  'Click',
+  'Payme',
+  'Uzum',
+  'Agrobank',
+  'Hamkorbank',
+  'Kapitalbank',
+  'AKFA',
+  'Uzmetkombinat',
+  'Uzbekneftegaz',
+  'Uzbekenergo',
+  'Tycoon',
+];
+const BRAND_RE = new RegExp(`(^|[^A-Za-z\\u0400-\\u04ff])(${PROTECTED_BRANDS.join('|')})(?![A-Za-z])`, 'gi');
+
 export function latinToCyrillic(input: string): string {
+  // Split around brand names, convert only the text in between.
+  if (BRAND_RE.test(input)) {
+    BRAND_RE.lastIndex = 0;
+    let out = '';
+    let last = 0;
+    for (const m of input.matchAll(BRAND_RE)) {
+      const start = (m.index ?? 0) + m[1].length;
+      out += convert(input.slice(last, start)) + m[2];
+      last = start + m[2].length;
+      if (input[last] && APOS.test(input[last]) && isLetter(input[last + 1])) {
+        out += '-';
+        last += 1;
+      }
+    }
+    return out + convert(input.slice(last));
+  }
+  BRAND_RE.lastIndex = 0;
+  return convert(input);
+}
+
+function convert(input: string): string {
   let out = '';
   const n = input.length;
   for (let i = 0; i < n; i++) {

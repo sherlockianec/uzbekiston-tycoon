@@ -4,7 +4,7 @@ import type { GameCommand, GameState, NewGameConfig, Settings } from '../game/ty
 import { applyCommand, createNewGame, createRng } from '../game/engine';
 import type { Rng } from '../game/engine/random';
 import { decideAiCommand, nextActorId } from '../game/ai/aiPlayer';
-import { loadGame, saveGame, saveSettings } from '../game/persistence';
+import { deleteSavedGame, loadGame, loadPreferredSettings, saveGame, saveSettings } from '../game/persistence';
 import { hopStepMs, pathSteps, planMovementHold, reducedMotionPreferred } from '../utils/movement';
 import { stepsToStart } from '../components/boardGeometry';
 
@@ -18,6 +18,24 @@ export interface MoneyFloat {
 }
 
 const FLOAT_LIFETIME_MS = 2400;
+
+/** The plainest legal moves for each phase, tried in order when a bot's own choice is refused. */
+export function aiFallbackCommands(state: GameState, actorId: string): GameCommand[] {
+  switch (state.phase) {
+    case 'AWAITING_ROLL':
+      return [{ type: 'ROLL_DICE' }, { type: 'END_TURN' }, { type: 'DECLARE_BANKRUPTCY' }];
+    case 'AWAITING_PURCHASE_DECISION':
+      return [{ type: 'DECLINE_PURCHASE' }];
+    case 'AWAITING_CARD_ACK':
+      return [{ type: 'ACK_CARD' }];
+    case 'AWAITING_TRADE_RESPONSE':
+      return state.trade?.toId === actorId
+        ? [{ type: 'RESPOND_TRADE', accept: false }, { type: 'CANCEL_TRADE' }]
+        : [{ type: 'CANCEL_TRADE' }];
+    default:
+      return [];
+  }
+}
 
 interface GameContextValue {
   /** What the UI should draw. While a pawn is walking this lags the engine's
@@ -93,6 +111,28 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  /** A bot's move. If the rules refuse it (they never should, but a refused command leaves the
+   * state unchanged, so the AI loop below would never fire again and the game would freeze),
+   * fall back to the plainest legal move for the phase instead. */
+  const dispatchAi = useCallback((command: GameCommand | null, actorId: string) => {
+    setState((prev) => {
+      if (!prev || !rngRef.current || busyRef.current) return prev;
+      const rng = rngRef.current;
+      if (command) {
+        const next = applyCommand(prev, command, actorId, rng);
+        if (next !== prev) return next;
+      }
+      for (const fallback of aiFallbackCommands(prev, actorId)) {
+        const next = applyCommand(prev, fallback, actorId, rng);
+        if (next !== prev) {
+          console.warn('AI move refused; used fallback', command, fallback);
+          return next;
+        }
+      }
+      return prev;
+    });
+  }, []);
+
   const startNewGame = useCallback((config: NewGameConfig) => {
     const seed = (Date.now() ^ Math.floor(Math.random() * 1e9)) >>> 0;
     rngRef.current = createRng(seed);
@@ -103,7 +143,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const saved = loadGame();
     if (!saved) return false;
     rngRef.current = createRng(Date.now() >>> 0);
-    setState(saved);
+    // Preferences chosen on the menu since the save was made (language, theme, sound...) win
+    // over the copy stored inside the save - otherwise picking Русский and pressing Continue
+    // reopened the game in whatever language it was saved in.
+    setState({ ...saved, settings: { ...saved.settings, ...loadPreferredSettings() } });
     return true;
   }, []);
 
@@ -230,9 +273,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (settings) saveSettings(settings);
   }, [settings]);
 
-  // Autosave whenever state changes (state is only non-null once a game exists).
+  // Autosave whenever state changes (state is only non-null once a game exists). A finished
+  // game is not kept: "Continue" on the menu would otherwise just reopen the final table.
   useEffect(() => {
-    if (gameState) saveGame(gameState);
+    if (!gameState) return;
+    if (gameState.phase === 'GAME_OVER') deleteSavedGame();
+    else saveGame(gameState);
   }, [gameState]);
 
   // Drives AI players automatically: after each state change, if whoever
@@ -246,11 +292,10 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     if (!actor || !actor.isAI || actor.bankrupt) return;
 
     const timer = setTimeout(() => {
-      const command = decideAiCommand(gameState, actorId);
-      if (command) dispatch(command, actorId);
+      dispatchAi(decideAiCommand(gameState, actorId), actorId);
     }, Math.max(150, gameState.settings.aiSpeedMs));
     return () => clearTimeout(timer);
-  }, [gameState, busy, dispatch]);
+  }, [gameState, busy, dispatchAi]);
 
   const value = useMemo<GameContextValue>(
     () => ({ state, busy, floats, dispatch, startNewGame, loadSavedGame, quitToMenu, updateSettings }),

@@ -36,6 +36,22 @@ function groupHasMortgagedSibling(state: GameState, groupId: string): boolean {
   return group.propertyIds.some((id) => state.ownership[id].mortgaged);
 }
 
+/** True when any property in `spaceId`'s colour group has a development level. Transport and
+ * utilities never do. While a group has development, none of its pieces may be mortgaged or
+ * traded (sell the levels back first) - otherwise a player could trade away or mortgage an
+ * undeveloped piece of a developed group and keep collecting the developed rent on the rest. */
+export function groupHasDevelopment(state: GameState, spaceId: string): boolean {
+  if (!isPropertyId(spaceId)) return false;
+  return groupOf(spaceId).propertyIds.some((id) => state.ownership[id].level > 0);
+}
+
+/** Whether `spaceId` may change hands in a trade right now (by whoever owns it). */
+export function isTradeable(state: GameState, spaceId: string): boolean {
+  const o = state.ownership[spaceId];
+  if (!o || !o.ownerId) return false;
+  return !groupHasDevelopment(state, spaceId);
+}
+
 
 export function canBuy(state: GameState, playerId: string, spaceId: string): boolean {
   const o = state.ownership[spaceId];
@@ -81,7 +97,7 @@ export function canSellDevelopment(state: GameState, playerId: string, spaceId: 
 export function canMortgage(state: GameState, playerId: string, spaceId: string): boolean {
   const o = state.ownership[spaceId];
   if (!o || o.ownerId !== playerId || o.mortgaged) return false;
-  if (isPropertyId(spaceId) && o.level > 0) return false;
+  if (groupHasDevelopment(state, spaceId)) return false; // sell the group's levels back first
   return true;
 }
 

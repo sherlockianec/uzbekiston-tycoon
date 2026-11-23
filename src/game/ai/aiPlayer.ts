@@ -3,7 +3,7 @@ import { PROPERTIES, GROUPS, INFRASTRUCTURE, UTILITIES, isPropertyId, isInfrastr
 import { BOARD } from '../data/board';
 import { BRIBE_GAMBLE_LOSS_MAX, DETENTION_FINE_SCHEDULE, MORTGAGE_WARNING_LAPS } from '../data/economy';
 import { costToReachNextLevel, getPlayer, ownableDef, refundForCurrentLevel } from '../engine/helpers';
-import { canDevelop, canMortgage, canSellDevelopment, canBuy, canUnmortgage } from '../engine/properties';
+import { canDevelop, canMortgage, canSellDevelopment, canBuy, canUnmortgage, isTradeable } from '../engine/properties';
 import { canTakeLoan } from '../engine/bank';
 import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT, STARTING_CASH } from '../data/economy';
 import { PERSONALITIES, type PersonalityTraits } from './personalities';
@@ -272,7 +272,7 @@ export function pickTradeProposal(
     if (ownerIds.size !== 1) continue;
     const ownerId = [...ownerIds][0];
     if (!ownerId) continue; // a free piece is bought on the board, not traded
-    if (missing.some((id) => state.ownership[id].level > 0 || state.ownership[id].mortgaged)) continue;
+    if (missing.some((id) => !isTradeable(state, id) || state.ownership[id].mortgaged)) continue;
     const ownerPlayer = state.players.find((p) => p.id === ownerId);
     if (!ownerPlayer || ownerPlayer.bankrupt) continue;
 
@@ -292,7 +292,7 @@ export function pickTradeProposal(
 
     // Spare lone pieces (the only one it holds of its business, not in this group) can be swapped in.
     const spares = Object.entries(state.ownership)
-      .filter(([id, o]) => o.ownerId === player.id && isPropertyId(id) && o.level === 0 && !o.mortgaged && !group.propertyIds.includes(id))
+      .filter(([id, o]) => o.ownerId === player.id && isPropertyId(id) && isTradeable(state, id) && !o.mortgaged && !group.propertyIds.includes(id))
       .filter(([id]) => groupMembers(id).filter((m) => state.ownership[m].ownerId === player.id).length === 1)
       .map(([id]) => id)
       .sort((a, b) => PROPERTIES[a].price - PROPERTIES[b].price);

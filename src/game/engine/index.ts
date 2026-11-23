@@ -14,6 +14,7 @@ import {
   canSellDevelopment,
   canUnmortgage,
   developProperty,
+  isTradeable,
   mortgageProperty,
   sellDevelopment,
   unmortgageProperty,
@@ -64,17 +65,23 @@ function validateTradeOffer(state: GameState, offer: Omit<TradeOffer, 'id'>): bo
   if (offer.requestCash > 0 && toP.cash < offer.requestCash) return false;
   if (fromP.releasePapers < offer.offerReleasePapers) return false;
   if (toP.releasePapers < offer.requestReleasePapers) return false;
+  // A piece of a colour group with any development on it (on that piece or a sibling) can't
+  // change hands until the group's levels are sold back.
   for (const id of offer.offerPropertyIds) {
     const o = state.ownership[id];
-    if (!o || o.ownerId !== offer.fromId) return false;
-    if (isPropertyId(id) && o.level > 0) return false;
+    if (!o || o.ownerId !== offer.fromId || !isTradeable(state, id)) return false;
   }
   for (const id of offer.requestPropertyIds) {
     const o = state.ownership[id];
-    if (!o || o.ownerId !== offer.toId) return false;
-    if (isPropertyId(id) && o.level > 0) return false;
+    if (!o || o.ownerId !== offer.toId || !isTradeable(state, id)) return false;
   }
   return true;
+}
+
+/** After rolling doubles the player must roll again (unless that roll sent them to Tax Inspection). */
+export function doublesRerollPending(state: GameState, playerId: string): boolean {
+  const p = state.players.find((pl) => pl.id === playerId);
+  return !!p && !p.inDetention && state.hasRolledThisTurn && state.doublesStreak > 0 && state.doublesStreak < 3;
 }
 
 /**
@@ -208,6 +215,7 @@ export function applyCommand(
       if (!isCurrent || state.phase !== 'AWAITING_ROLL') return noop(state);
       if (acting.cash < 0) return noop(state); // must get back to zero or above first
       if (!state.hasRolledThisTurn && !acting.resting) return noop(state);
+      if (doublesRerollPending(state, acting.id)) return noop(state); // doubles: the extra roll is not optional
       let next = appendLog(state, `${acting.name} ended their turn.`);
       if (acting.resting) {
         // The rest is over: the next turn is a normal one.

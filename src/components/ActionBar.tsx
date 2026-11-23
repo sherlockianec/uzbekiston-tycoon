@@ -2,7 +2,7 @@ import { useActiveGame } from '../state/GameProvider';
 import { nextActorId } from '../game/ai/aiPlayer';
 import { BOARD } from '../game/data/board';
 import { isOwnableId } from '../game/data/properties';
-import { priceAfterDiscount } from '../game/engine';
+import { doublesRerollPending, priceAfterDiscount } from '../game/engine';
 import { formatSom } from '../utils/currency';
 import { t, tf } from '../i18n/strings';
 import Dice from './Dice';
@@ -76,7 +76,9 @@ export default function ActionBar({
 
   const canRoll =
     isLocalHumanActing && !negative && !resting && (!state.hasRolledThisTurn || (state.doublesStreak > 0 && state.doublesStreak < 3));
-  const canEndTurn = isLocalHumanActing && !negative && (state.hasRolledThisTurn || resting);
+  // After doubles the extra roll is mandatory, so End Turn waits until it has been taken.
+  const canEndTurn =
+    isLocalHumanActing && !negative && (state.hasRolledThisTurn || resting) && !doublesRerollPending(state, actorId!);
   const showPayFine = isLocalHumanActing && !state.hasRolledThisTurn && actor!.inDetention;
   const canUsePaper = isLocalHumanActing && !state.hasRolledThisTurn && actor!.inDetention && actor!.releasePapers > 0;
   const canManage = isLocalHumanActing;

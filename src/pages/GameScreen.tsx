@@ -75,6 +75,15 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     setOverlay('bribe');
   }, [isLocalHumanActing, state.phase, state.hasRolledThisTurn, state.bribeGambleUsedThisTurn, onBribeCell, landingKey, actor.cash]);
 
+  // The bribe dialog: the offer only while solvent, but its RESULT always - a loss can push the
+  // balance below zero, and the player must still see what happened before the debt dialog.
+  const showBribe = overlay === 'bribe' && isLocalHumanActing && (actor.cash >= 0 || !!state.bribeResult);
+  // An overlay that can no longer be drawn must not linger: the debt dialog only shows while no
+  // overlay is open, so a stale 'bribe' overlay used to hide it (and the Debt button did nothing).
+  useEffect(() => {
+    if (overlay === 'bribe' && !showBribe && !busy) setOverlay('none');
+  }, [overlay, showBribe, busy]);
+
   // Auto-close the trade overlay once a proposed trade actually resolves.
   const sawTradeRef = useRef(false);
   useEffect(() => {
@@ -137,7 +146,10 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
     onOpenBank: () => setOverlay('bank'),
     onOpenNetworkTravel: () => setOverlay('network'),
     onOpenBribe: () => setOverlay('bribe'),
-    onOpenDebt: () => setDebtOpen(true),
+    onOpenDebt: () => {
+      setOverlay('none');
+      setDebtOpen(true);
+    },
   };
 
   const centre = (
@@ -194,7 +206,7 @@ export default function GameScreen({ onQuit, onPlayAgain }: { onQuit: () => void
       {overlay === 'build' && isLocalHumanActing && <BuildModal actorId={actorId} onClose={() => setOverlay('none')} />}
       {overlay === 'bank' && isLocalHumanActing && <BankModal actorId={actorId} onClose={() => setOverlay('none')} />}
       {overlay === 'network' && isLocalHumanActing && <NetworkTravelModal actorId={actorId} onClose={() => setOverlay('none')} />}
-      {overlay === 'bribe' && isLocalHumanActing && actor.cash >= 0 && <BribeModal actorId={actorId} onClose={() => setOverlay('none')} />}
+      {showBribe && <BribeModal actorId={actorId} onClose={() => setOverlay('none')} />}
       {negativeBalance && debtOpen && overlay === 'none' && (
         <NegativeBalanceModal
           actorId={actorId}

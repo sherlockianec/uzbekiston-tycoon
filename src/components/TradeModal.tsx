@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import { useActiveGame } from '../state/GameProvider';
-import { ownableDef } from '../game/engine';
-import { isPropertyId } from '../game/data/properties';
+import { isTradeable, ownableDef } from '../game/engine';
 import { formatSom } from '../utils/currency';
 import { t, tf, localized, type StringKey } from '../i18n/strings';
 import type { Language, TradeOffer } from '../game/types';
@@ -119,12 +118,9 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
     );
   }
 
-  const myTradeable = Object.entries(state.ownership).filter(
-    ([id, o]) => o.ownerId === actorId && (!isPropertyId(id) || o.level === 0)
-  );
-  const theirTradeable = Object.entries(state.ownership).filter(
-    ([id, o]) => o.ownerId === target.id && (!isPropertyId(id) || o.level === 0)
-  );
+  // Same rule as the engine: nothing from a colour group that has development on it.
+  const myTradeable = Object.entries(state.ownership).filter(([id, o]) => o.ownerId === actorId && isTradeable(state, id));
+  const theirTradeable = Object.entries(state.ownership).filter(([id, o]) => o.ownerId === target.id && isTradeable(state, id));
 
   function toggle(set: Set<string>, setSet: (s: Set<string>) => void, id: string) {
     const next = new Set(set);

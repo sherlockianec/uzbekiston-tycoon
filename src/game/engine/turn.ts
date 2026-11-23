@@ -122,7 +122,9 @@ export function moveToTarget(
 
 /** Tokens only ever travel FORWARD to Tax Inspection (the last corner before START), so anyone sent there
  * from past it (most of the board) crosses START and collects the salary.
- * Someone already standing there simply stays put (no free lap). */
+ * Someone already standing there simply stays put (no free lap).
+ * Being sent there also cancels a pending doubles re-roll: otherwise a player who rolled doubles and
+ * then drew "go to Tax Inspection" (or lost the bribe gamble) got an immediate free try to roll out. */
 export function sendToDetention(state: GameState, playerId: string): GameState {
   const detentionIndex = spaceById('detention').index;
   const from = getPlayer(state, playerId).position;
@@ -133,6 +135,7 @@ export function sendToDetention(state: GameState, playerId: string): GameState {
     if (passedStart) next = passStart(next, playerId);
   }
   next = updatePlayer(next, playerId, (p) => ({ ...p, inDetention: true, detentionTurns: 0 }));
+  if (state.players[state.currentPlayerIndex]?.id === playerId) next = { ...next, doublesStreak: 0 };
   next = appendLog(next, `${getPlayer(state, playerId).name} was sent to Tax Inspection.`);
   return next;
 }
@@ -363,7 +366,7 @@ export function resolveLanding(state: GameState, playerId: string, rng: Rng): Ga
       const rent = computeRent(state, space.id, diceSum, multiplier);
       const owner = getPlayer(state, o.ownerId);
       if (rent === 0 && owner.inDetention) {
-        const logged = appendLog(state, `${owner.name} is in Tax Inspection, so ${space.id} earned no rent this time.`);
+        const logged = appendLog(state, `${owner.name} is in Tax Inspection, so ${ownableDef(space.id).name} earned no rent this time.`);
         return { ...logged, ...resetMultiplier, phase: 'AWAITING_ROLL', currentSpaceId: space.id };
       }
       const charged = chargePlayer(state, playerId, rent, o.ownerId);

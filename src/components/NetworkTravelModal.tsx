@@ -7,6 +7,7 @@ import { t, tf, localized } from '../i18n/strings';
 import { useActiveGame } from '../state/GameProvider';
 import Icon from './icons/Icon';
 import { assetIconName } from './icons/iconFor';
+import { computeRent } from '../game/engine';
 
 export default function NetworkTravelModal({ actorId, onClose }: { actorId: string; onClose: () => void }) {
   const { state, dispatch } = useActiveGame();
@@ -55,8 +56,14 @@ export default function NetworkTravelModal({ actorId, onClose }: { actorId: stri
                   )}
                 </span>
                 {owner ? (
-                  <span className="text-sm" style={{ color: owner.tokenColor, fontWeight: 700 }}>
+                  <span className="text-sm" style={{ color: owner.tokenColor, fontWeight: 700, textAlign: 'right' }}>
                     {owner.name}
+                    {/* What arriving there will cost, before committing to the trip. */}
+                    {owner.id !== actorId && computeRent(state, id, 0) > 0 && (
+                      <span className="money money--negative" style={{ display: 'block', fontWeight: 600 }}>
+                        {tf('travelRentHere', lang, { amount: `−${formatSom(computeRent(state, id, 0))}` })}
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="money">{formatSom(def.price)}</span>

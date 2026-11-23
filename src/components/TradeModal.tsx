@@ -4,7 +4,7 @@ import { useActiveGame } from '../state/GameProvider';
 import { isTradeable, ownableDef } from '../game/engine';
 import { formatSom } from '../utils/currency';
 import { t, tf, localized, type StringKey } from '../i18n/strings';
-import type { Language, TradeOffer } from '../game/types';
+import type { GameState, Language, TradeOffer } from '../game/types';
 
 export default function TradeModal({ actorId, onClose }: { actorId: string; onClose: () => void }) {
   const { state, dispatch } = useActiveGame();
@@ -37,11 +37,11 @@ function TradeReview({ trade, actorId }: { trade: TradeOffer; actorId: string })
         <div className="trade-columns">
           <div className="trade-side trade-side--get">
             <h4>{tf('tradeYouWouldGet', lang, { name: me?.name ?? '' })}</h4>
-            <TradeSideSummary cash={trade.offerCash} propertyIds={trade.offerPropertyIds} papers={trade.offerReleasePapers} lang={lang} />
+            <TradeSideSummary state={state} cash={trade.offerCash} propertyIds={trade.offerPropertyIds} papers={trade.offerReleasePapers} lang={lang} />
           </div>
           <div className="trade-side trade-side--give">
             <h4>{tf('tradeYouWouldGive', lang, { name: me?.name ?? '' })}</h4>
-            <TradeSideSummary cash={trade.requestCash} propertyIds={trade.requestPropertyIds} papers={trade.requestReleasePapers} lang={lang} />
+            <TradeSideSummary state={state} cash={trade.requestCash} propertyIds={trade.requestPropertyIds} papers={trade.requestReleasePapers} lang={lang} />
           </div>
         </div>
         <div className={`trade-balance ${balance < 0 ? 'trade-balance--neg' : balance > 0 ? 'trade-balance--pos' : ''}`}>
@@ -64,17 +64,61 @@ function TradeReview({ trade, actorId }: { trade: TradeOffer; actorId: string })
   );
 }
 
-function TradeSideSummary({ cash, propertyIds, papers, lang }: { cash: number; propertyIds: string[]; papers: number; lang: Language }) {
+/** "mortgaged, 3 laps left" after an asset's name: whoever receives it inherits the countdown. */
+function MortgageTag({ state, id, lang }: { state: GameState; id: string; lang: Language }) {
+  const o = state.ownership[id];
+  if (!o?.mortgaged) return null;
+  return (
+    <span className="text-sm money--negative" style={{ marginLeft: 6 }}>
+      ({tf('tradeMortgagedTag', lang, { n: o.mortgageLapsRemaining ?? '?' })})
+    </span>
+  );
+}
+
+function TradeSideSummary({
+  state,
+  cash,
+  propertyIds,
+  papers,
+  lang,
+}: {
+  state: GameState;
+  cash: number;
+  propertyIds: string[];
+  papers: number;
+  lang: Language;
+}) {
   const empty = cash === 0 && papers === 0 && propertyIds.length === 0;
   return (
     <ul style={{ listStyle: 'none', padding: 0, margin: 0, fontSize: 13, display: 'flex', flexDirection: 'column', gap: 4 }}>
       {cash > 0 && <li className="money">{formatSom(cash)}</li>}
       {papers > 0 && <li>{tf('releasePapersN', lang, { n: papers })}</li>}
       {propertyIds.map((id) => (
-        <li key={id}>{localized(ownableDef(id), lang)}</li>
+        <li key={id}>
+          {localized(ownableDef(id), lang)}
+          <MortgageTag state={state} id={id} lang={lang} />
+        </li>
       ))}
       {empty && <li className="text-muted">{t('nothing', lang)}</li>}
     </ul>
+  );
+}
+
+/** A small "- n +" counter for release papers. */
+function PaperStepper({ value, max, onChange, label, lang }: { value: number; max: number; onChange: (n: number) => void; label: string; lang: Language }) {
+  return (
+    <div className="trade-item" style={{ gap: 8 }}>
+      <span style={{ flex: 1 }}>
+        {t('tradePapers', lang)} <span className="text-sm text-muted">({label})</span>
+      </span>
+      <button type="button" className="btn btn--sm" onClick={() => onChange(Math.max(0, value - 1))} disabled={value <= 0} aria-label="-1">
+        {'−'}
+      </button>
+      <strong style={{ minWidth: 16, textAlign: 'center' }}>{value}</strong>
+      <button type="button" className="btn btn--sm" onClick={() => onChange(Math.min(max, value + 1))} disabled={value >= max} aria-label="+1">
+        +
+      </button>
+    </div>
   );
 }
 
@@ -96,6 +140,8 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
   const [net, setNet] = useState(refused?.offer ? refused.offer.offerCash - refused.offer.requestCash : 0);
   const [offerProps, setOfferProps] = useState<Set<string>>(new Set(refused?.offer?.offerPropertyIds ?? []));
   const [requestProps, setRequestProps] = useState<Set<string>>(new Set(refused?.offer?.requestPropertyIds ?? []));
+  const [offerPapers, setOfferPapers] = useState(0);
+  const [requestPapers, setRequestPapers] = useState(0);
 
   const target = state.players.find((p) => p.id === targetId);
   const result = state.lastTradeResult;
@@ -121,6 +167,9 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
   // Same rule as the engine: nothing from a colour group that has development on it.
   const myTradeable = Object.entries(state.ownership).filter(([id, o]) => o.ownerId === actorId && isTradeable(state, id));
   const theirTradeable = Object.entries(state.ownership).filter(([id, o]) => o.ownerId === target.id && isTradeable(state, id));
+  const someLocked = Object.entries(state.ownership).some(
+    ([id, o]) => (o.ownerId === actorId || o.ownerId === target.id) && !isTradeable(state, id)
+  );
 
   function toggle(set: Set<string>, setSet: (s: Set<string>) => void, id: string) {
     const next = new Set(set);
@@ -156,17 +205,18 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
           toId: target!.id,
           offerCash,
           offerPropertyIds: Array.from(offerProps),
-          offerReleasePapers: 0,
+          offerReleasePapers: Math.min(offerPapers, human.releasePapers),
           requestCash,
           requestPropertyIds: Array.from(requestProps),
-          requestReleasePapers: 0,
+          requestReleasePapers: Math.min(requestPapers, target!.releasePapers),
         },
       },
       actorId
     );
   }
 
-  const nothingChosen = offerCash === 0 && requestCash === 0 && offerProps.size === 0 && requestProps.size === 0;
+  const nothingChosen =
+    offerCash === 0 && requestCash === 0 && offerProps.size === 0 && requestProps.size === 0 && offerPapers === 0 && requestPapers === 0;
   const hintKey: StringKey | null =
     declined && result
       ? result.ratio === undefined
@@ -202,6 +252,7 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
               onChange={(e) => {
                 setTargetId(e.target.value);
                 setRequestProps(new Set());
+                setRequestPapers(0);
                 setNet(0);
               }}
             >
@@ -222,8 +273,18 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
                   <label key={id} className="trade-item">
                     <input type="checkbox" checked={offerProps.has(id)} onChange={() => toggle(offerProps, setOfferProps, id)} />
                     {localized(ownableDef(id), lang)}
+                    <MortgageTag state={state} id={id} lang={lang} />
                   </label>
                 ))}
+                {human.releasePapers > 0 && (
+                  <PaperStepper
+                    value={offerPapers}
+                    max={human.releasePapers}
+                    onChange={setOfferPapers}
+                    label={tf('tradeYouHave', lang, { n: human.releasePapers })}
+                    lang={lang}
+                  />
+                )}
               </div>
             </div>
             <div>
@@ -234,11 +295,22 @@ function TradeBuilder({ actorId, onClose, pending }: { actorId: string; onClose:
                   <label key={id} className="trade-item">
                     <input type="checkbox" checked={requestProps.has(id)} onChange={() => toggle(requestProps, setRequestProps, id)} />
                     {localized(ownableDef(id), lang)}
+                    <MortgageTag state={state} id={id} lang={lang} />
                   </label>
                 ))}
+                {target.releasePapers > 0 && (
+                  <PaperStepper
+                    value={requestPapers}
+                    max={target.releasePapers}
+                    onChange={setRequestPapers}
+                    label={tf('tradeTheyHave', lang, { n: target.releasePapers })}
+                    lang={lang}
+                  />
+                )}
               </div>
             </div>
           </div>
+          {someLocked && <p className="text-sm text-muted">{t('tradeLockedHint', lang)}</p>}
 
           <div className="trade-money">
             <div className="trade-money__ends">

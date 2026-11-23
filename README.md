@@ -41,7 +41,9 @@ as the Vite base path. No secrets or backend are required.
   networks, Income Tax and Business Tax, 2 card decks, the Local Official, and four corners:
   START, Chorsu Choyxona (bottom-left), the Senior Official (top-left) and Tax Inspection (top-right).
 - **Money:** Uzbek so'm, formatted `2 500 000 so'm`. Everyone starts with 15 000 000;
-  passing START pays 1 500 000.
+  passing START pays 1 200 000.
+- **Doubles:** roll doubles and you must roll again once the move resolves; three doubles
+  in a row (or being sent to Tax Inspection) ends that.
 - **No auctions.** Decline a purchase and the property stays unowned until somebody lands
   there and buys it. Declining is not final: a **Buy** button stays in the centre of the
   board while you stand on the space - also at the START of your next turn, before you
@@ -49,11 +51,13 @@ as the Vite base path. No secrets or backend are required.
 - **Development:** own a whole group, then upgrade Business → Company → Development →
   Business Center → Holding. Even-building is enforced; the final Holding upgrade costs
   double the earlier ones. The **Build** button lists every upgrade available right now.
+  While any property of a group has development, no piece of that group can be mortgaged
+  or traded - sell the group's levels back first.
 - **Mortgages have teeth:** mortgaging pays half the price, redeeming costs the full
   price, and you have **6 laps** (START passes) to redeem before the bank forecloses with
   no compensation. The lock and laps-left show on the board and turn red at 2 or fewer.
-- **Bank loans:** borrow up to 10 000 000 at 30% interest. After 3 START passes the bank
-  takes principal + interest in ONE payment (10 000 000 -> 13 000 000 at once). A toast
+- **Bank loans:** borrow up to 5 000 000 at 30% interest. After 3 START passes the bank
+  takes principal + interest in ONE payment (5 000 000 -> 6 500 000 at once). A toast
   announces each lap. One loan at a time; early full repayment allowed.
 - **No debt, only a negative balance:** rent, taxes and loans are always paid in full -
   the owner gets all of it even if you cannot cover it, and your balance goes negative.
@@ -72,13 +76,15 @@ as the Vite base path. No secrets or backend are required.
   500 000-2 500 000. Odds always stay loss > jail > gain.
 - **Chorsu Choyxona:** passing it does nothing; if you END your turn on it you skip the
   next dice roll (you can still buy, build, trade, use the bank).
-- **Transport network:** only when your dice roll ENDS on an owned transport asset (you
-  bought it or paid its owner), travel free once that turn to any other one and resolve
-  it as a normal landing. No chaining, and the option never carries to the next turn. Travel is always forward, so a
-  destination behind you means a lap past START and you collect the salary.
+- **Transport network:** only when your dice roll ENDS on a transport asset that already
+  had an owner when you arrived (yours, or one whose rent you just paid - buying a free one
+  does not count), travel free once that turn to any other OWNED one; arriving there is a
+  normal landing (you pay its owner unless it is yours). No chaining, and the option never
+  carries to the next turn. Travel is always forward, so a destination behind you means a
+  lap past START and you collect the salary.
 - **Cards:** 20 Mahalla + 20 Business Opportunity cards with real effects on cash,
   position, taxes, loans (cut / forgive / extend), tax immunity and purchase discounts.
-- **Trading:** cash + properties + release papers, with a Balance helper. AI opponents
+- **Trading:** cash + properties + release papers, with an Equalize helper. AI opponents
   both respond to trades and propose their own (at most once per turn).
 - **AI:** 5 personalities (Conservative, Aggressive, Developer, Banker, Chaotic) × 3
   difficulties. They buy, develop, redeem mortgages before foreclosure, trade, and the

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MAX_LOAN_AMOUNT, MIN_LOAN_AMOUNT, LOAN_INTEREST_PERCENT, LOAN_LAPS } from '../game/data/economy';
 import { canTakeLoan } from '../game/engine';
 import { formatSom } from '../utils/currency';
-import { t } from '../i18n/strings';
+import { t, tf } from '../i18n/strings';
 import { useActiveGame } from '../state/GameProvider';
 import CostButton from './CostButton';
 
@@ -63,9 +63,7 @@ export default function BankModal({ actorId, onClose }: { actorId: string; onClo
               />
               <div className="flex-row" style={{ justifyContent: 'space-between', marginTop: 6 }}>
                 <span className="money">{formatSom(amount)}</span>
-                <span className="text-sm text-muted">
-                  +{LOAN_INTEREST_PERCENT}% after {LOAN_LAPS} laps
-                </span>
+                <span className="text-sm text-muted">{tf('loanTermNote', lang, { pct: LOAN_INTEREST_PERCENT, laps: LOAN_LAPS })}</span>
               </div>
             </div>
             <div className="modal__row">

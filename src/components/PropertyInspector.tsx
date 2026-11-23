@@ -60,8 +60,11 @@ export default function PropertyInspector({ spaceId, actorId, onClose, forceDeci
   } else if (ownership.mortgaged) {
     currentRentDisplay = `${formatSom(0)} (${t('mortgaged', lang).toLowerCase()})`;
   } else if (isUtility) {
+    const u = UTILITIES[spaceId];
     const ownedCount = playersOwning(state, ownership.ownerId!, Object.keys(UTILITIES)).length;
-    currentRentDisplay = tf('diceMultiple', lang, { n: ownedCount >= 2 ? 10 : 4 });
+    // Rent = dice sum x multiplier x unit value, so show the so'm per dice point, not a bare "4x".
+    const perPoint = (ownedCount >= 2 ? u.diceMultiplier.both : u.diceMultiplier.one) * u.unitValue;
+    currentRentDisplay = tf('diceTimes', lang, { amount: formatSom(perPoint) });
   } else {
     currentRentDisplay = formatSom(computeRent(state, spaceId, 7));
   }
@@ -160,6 +163,31 @@ export default function PropertyInspector({ spaceId, actorId, onClose, forceDeci
             <span>{t('mortgageValue', lang)}</span>
             <span className="money">{formatSom(def.mortgageValue)}</span>
           </div>
+        )}
+        {/* What a transport asset or utility earns, by how many of its kind the owner holds. */}
+        {(isInfra || isUtility) && (
+          <table style={{ width: '100%', fontSize: 11, color: 'var(--text-muted)', borderCollapse: 'collapse', marginTop: 10 }}>
+            <tbody>
+              {isInfra &&
+                INFRASTRUCTURE[spaceId].rentTable.map((rent, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '2px 0' }}>{tf('rentOwnedN', lang, { n: i + 1 })}</td>
+                    <td style={{ textAlign: 'right' }} className="money">
+                      {formatSom(rent)}
+                    </td>
+                  </tr>
+                ))}
+              {isUtility &&
+                [UTILITIES[spaceId].diceMultiplier.one, UTILITIES[spaceId].diceMultiplier.both].map((mult, i) => (
+                  <tr key={i}>
+                    <td style={{ padding: '2px 0' }}>{tf('rentOwnedN', lang, { n: i + 1 })}</td>
+                    <td style={{ textAlign: 'right' }} className="money">
+                      {tf('diceTimes', lang, { amount: formatSom(mult * UTILITIES[spaceId].unitValue) })}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         )}
 
         {forceDecision && <p className="text-sm text-muted">{t('buyLaterHint', lang)}</p>}

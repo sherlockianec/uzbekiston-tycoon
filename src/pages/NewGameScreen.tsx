@@ -50,7 +50,8 @@ export default function NewGameScreen({
   const canStart = humanCount >= 1;
 
   function start() {
-    const takenAiNames: string[] = [];
+    // Names already chosen by anyone (humans included), so a bot is never "Sevara" twice.
+    const takenAiNames: string[] = activeSlots.map((s) => s.name.trim()).filter(Boolean);
     const players = activeSlots.map((s, i) => {
       if (!s.isAI) {
         return { name: s.name.trim() || tf('playerN', lang, { n: i + 1 }), isAI: false as const };

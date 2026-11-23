@@ -278,3 +278,15 @@ Save format is now **SAVE_VERSION 4** (old saves are rejected with the existing 
 - Not done: reference-style Fast/Long modes (rejected earlier), per-player trade cooldown, sim for human-style play.
 
 - **Trade refusal naming**: `lastTradeResult` now stores `toId` and the refused `offer`; the proposer's window reopens on the person who REALLY refused with the same pieces and cash. A human refusal says 'X rejected your offer' (no ratio); a bot's refusal adds the far/not-enough/close hint.
+
+---
+## v1.2 batch 5 (bug-fix pass, Nov 2026)
+Verified: `tsc` clean, `vitest` 280/280 (+ `tests/rules-fixes.test.ts`), build OK, played in a real browser.
+- **Bribe loss below zero** used to leave NO dialog (stale `overlay='bribe'` hid the debt dialog; "Cover balance" did nothing). GameScreen now shows the bribe result even when cash < 0 and closes an overlay it can no longer draw. Keep `showBribe` + the cleanup effect.
+- **`sendToDetention` resets `doublesStreak`** (card/bribe jail after doubles gave a free jail roll).
+- **Doubles re-roll is mandatory**: `END_TURN` is a no-op while `doublesRerollPending()`; ActionBar hides End Turn.
+- **Developed groups are locked**: `groupHasDevelopment()` blocks MORTGAGE and trade for every piece of a colour group with any level (`isTradeable()` used by engine, TradeModal and bot proposals).
+- **Bot fallback** (`aiFallbackCommands` in GameProvider): a refused bot command no longer freezes the AI loop.
+- Continue applies the menu's current preferences; GAME_OVER games are not autosaved.
+- UI: release papers in the trade builder, mortgage laps on traded pieces, rent schedules for transport/utilities, rent shown per travel destination, translated loan-term note.
+- Rules page + README corrected (transport eligibility, Equalize, group lock, salary 1.2M, loan max 5M).
